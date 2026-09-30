@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>notTaki</title>
     <style>
-      .cd-preloader {
+      .preloader {
         background-color: #111111;
         position: fixed;
         inset: 0;
@@ -19,13 +19,18 @@
           filter 1.5s ease-in-out,
           opacity 1.5s ease-in-out;
         z-index: 9999;
+        overflow: hidden;
         will-change: transform, opacity;
       }
 
-      .cd-preloader.exit {
+      .preloader.exit {
         transform: scale(20);
         opacity: 0;
         pointer-events: none;
+      }
+
+      .cd-wrapper {
+        transition: transform 0.1s ease-out;
       }
 
       .cd {
@@ -90,14 +95,46 @@
   </head>
 
   <body>
-    <div class="cd-preloader">
-      <div class="cd"></div>
+    <!-- Site pre-loader -->
+    <div class="preloader">
+      <div class="cd-wrapper">
+        <div class="cd"></div>
+      </div>
     </div>
+
+    <!-- React App -->
     <div id="root"></div>
+
+    <!-- Site pre-loader script -->
     <script>
+      const preloader = document.querySelector('.preloader');
+      const wrapper = document.querySelector('.cd-wrapper');
+      const MAX_TILT_DEGREES = 30;
+
+      const handleMouseMove = (e) => {
+        // Find the exact center of the whole browser window
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+
+        // Get current mouse position
+        const mouseX = e.clientX;
+        const mouseY = e.clientY;
+
+        // Calculate the tilt based on window size
+        // We use `window.innerWidth / 2` as the divisor so the max tilt happens at the edges of the screen
+        const rotateY = ((mouseX - centerX) / centerX) * MAX_TILT_DEGREES;
+        const rotateX = -((mouseY - centerY) / centerY) * MAX_TILT_DEGREES;
+
+        // Apply the tilt to the WRAPPER, not on CD itself ~ !!
+        wrapper.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+      }
+
+      document.addEventListener('mousemove', handleMouseMove);
+
       window.addEventListener('load', () => {
-        const preloader = document.querySelector('.cd-preloader');
         setTimeout(() => {
+          document.removeEventListener('mousemove', handleMouseMove);
+          wrapper.style.transform = `rotateX(0deg) rotateY(0deg)`;
           preloader.classList.add('exit');
           setTimeout(() => {
             preloader.remove()
@@ -105,6 +142,8 @@
         }, 4000);
       })
     </script>
+
+    <!-- React App script -->
     <script type="module" src="/src/main.tsx"></script>
   </body>
 
