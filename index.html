@@ -103,6 +103,21 @@
           opacity: 1;
         }
       }
+
+
+      .filter-turbulent-displace {
+        display: none;
+      }
+
+      .filter-td-target {
+        filter: url(#displacementFilter);
+      }
+
+      #root {
+        opacity: 0;
+        filter: blur(6px);
+        transition: opacity 3s ease-out, filter 6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
     </style>
   </head>
 
@@ -117,10 +132,31 @@
     <!-- React App -->
     <div id="root"></div>
 
+    <svg class="filter-turbulent-displace">
+      <filter id="displacementFilter">
+        <feTurbulence type="turbulence" baseFrequency="0.01 0.05" numOctaves="2" result="turb" />
+        <feColorMatrix id="hue" type="hueRotate" values="0" in="turb" result="rotated" />
+        <feDisplacementMap in="SourceGraphic" in2="rotated" scale="10" xChannelSelector="R" yChannelSelector="G" />
+      </filter>
+    </svg>
+
+    <script>
+      const hue = document.getElementById('hue');
+      let angle = 0;
+
+      function animate() {
+        angle = (angle + 3) % 360;   // 0 → 360 → 0, seamless
+        hue.setAttribute('values', angle);
+        requestAnimationFrame(animate);
+      }
+      animate();
+    </script>
+
     <!-- Site pre-loader script -->
     <script>
       const preloader = document.querySelector('.preloader');
       const wrapper = document.querySelector('.cd-wrapper');
+      const appRoot = document.getElementById('root');
       const MAX_TILT_DEGREES = 30;
 
       const handleMouseMove = (e) => {
@@ -141,6 +177,11 @@
         wrapper.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
       }
 
+      const showApp = () => {
+        appRoot.style.opacity = 1;
+        appRoot.style.filter = "blur(0)";
+      }
+
       document.addEventListener('mousemove', handleMouseMove);
 
       window.addEventListener('load', () => {
@@ -148,6 +189,7 @@
           document.removeEventListener('mousemove', handleMouseMove);
           wrapper.style.transform = `rotateX(0deg) rotateY(0deg)`;
           preloader.classList.add('exit');
+          showApp();
           setTimeout(() => {
             preloader.remove()
           }, 2000);

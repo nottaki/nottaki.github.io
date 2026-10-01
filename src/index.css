@@ -1,1 +1,10 @@
 @import "tailwindcss";
+
+* {
+    @apply selection:bg-[#111111] selection:text-gray-50;
+}
+
+#root {
+    @apply w-screen h-dvh flex flex-col text-[#111111];
+}
+
