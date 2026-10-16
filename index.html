@@ -7,7 +7,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>definitely not Taki !</title>
     <style>
-      .preloader {
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      #preloader {
         background-color: #111111;
         position: fixed;
         inset: 0;
@@ -19,26 +26,27 @@
           filter 1.5s ease-in-out,
           opacity 1.5s ease-in-out;
         z-index: 9999;
-        overflow: hidden;
-        will-change: transform, opacity;
+        will-change: opacity, transform;
         animation: customFadeIn 1s cubic-bezier(0.645, 0.045, 0.355, 1);
       }
 
-      .preloader.exit {
-        transform: scale(20);
+      #preloader.exit {
         opacity: 0;
+        transform: scale(20);
         pointer-events: none;
+        backdrop-filter: blur(6px);
       }
 
-      .cd-wrapper {
+      #cd-wrapper {
         transition: transform 0.1s ease-out;
+        transform-origin: center center;
       }
 
-      .cd {
+      #cd {
         position: relative;
         height: 300px;
         width: 300px;
-        border-radius: calc(infinity * 1px);
+        border-radius: 50%;
         background: radial-gradient(circle,
             transparent 30%,
             #ffffff1a 35%,
@@ -55,40 +63,39 @@
       }
 
       /* Plastic part */
-      .cd::before {
+      #cd::before {
         content: "";
         position: absolute;
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        border-radius: calc(infinity * 1px);
+        border-radius: 50%;
         height: 120px;
         width: 120px;
         background-color: #aecfda88;
-        box-shadow: inset 0 0 0 2px #ffffffe6,
-          inset 0 0 5px #0000004d;
+        box-shadow: inset 0 0 0 2px #ffffffe6, inset 0 0 5px #0000004d;
       }
 
       /* Hole in the middle */
-      .cd::after {
+      #cd::after {
         content: "";
         position: absolute;
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
+        border-radius: 50%;
         height: 60px;
         width: 60px;
-        border-radius: calc(infinity * 1px);
         background-color: #111111;
         box-shadow: 0 0 6px 1px #ffffff;
       }
 
       @keyframes spinCD {
-        0% {
+        from {
           transform: rotateZ(0deg);
         }
 
-        100% {
+        to {
           transform: rotateZ(360deg);
         }
       }
@@ -104,97 +111,116 @@
         }
       }
 
-
-      .filter-turbulent-displace {
-        display: none;
-      }
-
-      .filter-td-target {
-        filter: url(#displacementFilter);
-      }
-
+      /* App Root starts hidden */
       #root {
         opacity: 0;
-        filter: blur(6px);
         transition: opacity 3s ease-out, filter 6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+
+      #root.ready {
+        opacity: 1;
       }
     </style>
   </head>
 
   <body>
-    <!-- Site pre-loader -->
-    <div class="preloader">
-      <div class="cd-wrapper">
-        <div class="cd"></div>
+    <div id="preloader">
+      <div id="cd-wrapper">
+        <div id="cd"></div>
       </div>
     </div>
 
-    <!-- React App -->
     <div id="root"></div>
 
-    <svg class="filter-turbulent-displace">
-      <filter id="displacementFilter">
-        <feTurbulence type="turbulence" baseFrequency="0.01 0.05" numOctaves="2" result="turb" />
-        <feColorMatrix id="hue" type="hueRotate" values="0" in="turb" result="rotated" />
-        <feDisplacementMap in="SourceGraphic" in2="rotated" scale="10" xChannelSelector="R" yChannelSelector="G" />
-      </filter>
-    </svg>
-
     <script>
-      const hue = document.getElementById('hue');
-      let angle = 0;
+      (function () {
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
 
-      function animate() {
-        angle = (angle + 3) % 360;   // 0 → 360 → 0, seamless
-        hue.setAttribute('values', angle);
-        requestAnimationFrame(animate);
-      }
-      animate();
-    </script>
+        const preloader = document.getElementById('preloader');
+        const wrapper = document.getElementById('cd-wrapper');
+        const appRoot = document.getElementById('root');
+        const MAX_TILT_DEGREES = 30;
 
-    <!-- Site pre-loader script -->
-    <script>
-      const preloader = document.querySelector('.preloader');
-      const wrapper = document.querySelector('.cd-wrapper');
-      const appRoot = document.getElementById('root');
-      const MAX_TILT_DEGREES = 30;
+        let rafId = null;
+        let isReactReady = false;
+        let minTimePassed = false;
 
-      const handleMouseMove = (e) => {
-        // Find the exact center of the whole browser window
-        const centerX = window.innerWidth / 2;
-        const centerY = window.innerHeight / 2;
+        const handleMouseMove = (e) => {
+          if (rafId) return;
+          rafId = requestAnimationFrame(() => {
+            // Find the exact center of the whole browser window
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
 
-        // Get current mouse position
-        const mouseX = e.clientX;
-        const mouseY = e.clientY;
+            // Calculate the tilt based on window size
+            // We use `window.innerWidth / 2` as the divisor so the max tilt happens at the edges of the screen
+            const rotateY = ((e.clientX - centerX) / centerX) * MAX_TILT_DEGREES;
+            const rotateX = -((e.clientY - centerY) / centerY) * MAX_TILT_DEGREES;
 
-        // Calculate the tilt based on window size
-        // We use `window.innerWidth / 2` as the divisor so the max tilt happens at the edges of the screen
-        const rotateY = ((mouseX - centerX) / centerX) * MAX_TILT_DEGREES;
-        const rotateX = -((mouseY - centerY) / centerY) * MAX_TILT_DEGREES;
+            if (wrapper) {
+              wrapper.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+            }
+            rafId = null;
+          });
+        };
 
-        // Apply the tilt to the WRAPPER, not on CD itself ~ !!
-        wrapper.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
-      }
+        // The preloader hide function
+        const hidePreloader = () => {
+          if (!preloader || preloader.classList.contains('exit')) return;
 
-      const showApp = () => {
-        appRoot.style.opacity = 1;
-        appRoot.style.filter = "blur(0)";
-      }
-
-      document.addEventListener('mousemove', handleMouseMove);
-
-      window.addEventListener('load', () => {
-        setTimeout(() => {
           document.removeEventListener('mousemove', handleMouseMove);
-          wrapper.style.transform = `rotateX(0deg) rotateY(0deg)`;
+
+          if (wrapper) {
+            wrapper.style.transform = 'rotateX(0deg) rotateY(0deg)';
+          }
+
           preloader.classList.add('exit');
-          showApp();
+          if (appRoot) {
+            appRoot.classList.add('ready');
+          }
+
+          // Remove from DOM after transition completes
           setTimeout(() => {
-            preloader.remove()
-          }, 2000);
+            if (preloader) {
+              preloader.remove()
+            }
+            document.body.style.overflow = '';
+            document.documentElement.style.overflow = '';
+          }, 1500);
+        };
+
+        // Check if both conditions are met
+        const checkAndHide = () => {
+          if (isReactReady && minTimePassed) {
+            hidePreloader();
+          }
+        };
+
+        // React calls this when it's hydrated and ready
+        window.hidePreloader = () => {
+          isReactReady = true;
+          checkAndHide();
+        };
+
+        // Ensure a minimum display time (e.g., 4000ms) so the animation is seen
+        // and to prevent any flashing if React loads instantly.
+        setTimeout(() => {
+          minTimePassed = true;
+          checkAndHide();
         }, 4000);
-      });
+
+        // Safety fallback: If something goes wrong and React never calls hidePreloader,
+        // force it to disappear after 10 seconds so the user isn't stuck forever.
+        setTimeout(() => {
+          if (!preloader.classList.contains('exit')) {
+            isReactReady = true; // Force it
+            checkAndHide();
+          }
+        }, 10000); // 10000 to give React plenty of time even on slow connections
+
+        document.addEventListener('mousemove', handleMouseMove);
+      })();
     </script>
 
     <!-- React App script -->
