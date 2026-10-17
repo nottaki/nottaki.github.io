@@ -6,6 +6,15 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>definitely not Taki !</title>
+    <script>
+      (function () {
+        var redirect = sessionStorage.getItem('spa-redirect')
+        sessionStorage.removeItem('spa-redirect')
+        if (redirect) {
+          history.replaceState(null, '', redirect)
+        }
+      })()
+    </script>
     <style>
       body,
       html {
