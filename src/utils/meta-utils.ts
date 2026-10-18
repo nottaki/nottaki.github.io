@@ -25,7 +25,7 @@ export function buildMetaConfig(meta: PageMetaInput) {
         '@type': siteConfig.artist.isSolo ? 'Person' : 'MusicGroup',
         'name': siteConfig.artist.name,
         'url': canonical,
-        'image': siteConfig.artist.image,
+        'image': `${siteConfig.url}${siteConfig.artist.image}`,
         'genre': siteConfig.artist.genres,
         'description': meta.description,
         'sameAs': [

@@ -7,28 +7,28 @@ export const pages: PageMetaInput[] = [
         title: 'Home',
         description: `The Official ${siteConfig.artist.name} Website.`,
         keywords: ['nottaki', 'notTaki', 'j-pop artist', 'official website', 'indie music', 'definitely not Taki !'],
-        ogImage: '/og-home.jpg',
+        ogImage: `${siteConfig.url}/og-home.jpg`,
     },
     {
         path: '/discography',
         title: 'Discography',
         description: `Discover the music of ${siteConfig.artist.name}. Browse the full discography, including the latest singles, EPs, and studio albums.`,
         keywords: ['music', 'j-pop', 'albums', 'notTaki', 'streaming', 'singles'],
-        ogImage: '/og-discography.jpg',
+        ogImage: `${siteConfig.url}/og-discography.jpg`,
     },
     {
         path: '/commissions',
         title: 'Commissions',
         description: 'Looking for custom music production, mixing, or mastering? Maybe I can help...',
         keywords: ['music commissions', 'custom song', 'vocal track', 'music production', 'hire musician'],
-        ogImage: '/og-commissions.jpg',
+        ogImage: `${siteConfig.url}/og-commissions.jpg`,
     },
     {
         path: '/404',
         title: '404 - Page Not Found',
         description: "Oops! It looks like the page you are looking for doesn't exist.",
         keywords: ['404', 'page not found', 'error'],
-        ogImage: '/og-404.jpg',
+        ogImage: `${siteConfig.url}/og-404.jpg`,
         noIndex: true,
     }
 ]
