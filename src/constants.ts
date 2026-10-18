@@ -10,7 +10,7 @@ export const siteConfig = {
         name: "notTaki",
         isSolo: true, // true for solo, false for a band
         genres: ["J-Pop", "Electronic", "Pop"],
-        image: "/images/artist-promo.jpg",
+        image: "/images/notTaki.jpg",
     },
 
     // --- Social Media & Links ---

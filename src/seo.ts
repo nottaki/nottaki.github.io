@@ -28,6 +28,7 @@ export const pages: PageMetaInput[] = [
         title: '404 - Page Not Found',
         description: "Oops! It looks like the page you are looking for doesn't exist.",
         keywords: ['404', 'page not found', 'error'],
+        ogImage: '/og-404.jpg',
         noIndex: true,
     }
 ]
