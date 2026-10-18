@@ -1,5 +1,5 @@
-import { buildMetaConfig, type PageMetaInput } from '@/utils/meta-utils'
-import { siteConfig } from '@/constants'
+import { buildMetaConfig, type PageMetaInput } from './utils/meta-utils.ts'
+import { siteConfig } from './constants.ts'
 
 export const pages: PageMetaInput[] = [
     {
