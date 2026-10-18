@@ -5,7 +5,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Route, Routes } from 'react-router'
 import App from './App.tsx'
 import './index.css'
-import { Commissions, Discography, Error404, Home } from './pages'
+import { Commissions, Discography, Home, NotFoundPage } from './pages'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -15,7 +15,7 @@ createRoot(document.getElementById('root')!).render(
           <Route index element={<Home />} />
           <Route path="discography" element={<Discography />} />
           <Route path="commissions" element={<Commissions />} />
-          <Route path='/*' element={<Error404 />} />
+          <Route path='/*' element={<NotFoundPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

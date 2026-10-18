@@ -3,9 +3,15 @@
 
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="manifest" href="/site.webmanifest">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- seo:start -->
     <title>definitely not Taki !</title>
+    <meta name="description" content="The Official notTaki Website." />
+    <!-- seo:end -->
     <script>
       (function () {
         var redirect = sessionStorage.getItem('spa-redirect')
@@ -142,94 +148,94 @@
     <div id="root"></div>
 
     <script>
-      (function () {
-        document.body.style.overflow = 'hidden';
-        document.documentElement.style.overflow = 'hidden';
+        (function () {
+          document.body.style.overflow = 'hidden';
+          document.documentElement.style.overflow = 'hidden';
 
-        const preloader = document.getElementById('preloader');
-        const wrapper = document.getElementById('cd-wrapper');
-        const appRoot = document.getElementById('root');
-        const MAX_TILT_DEGREES = 30;
+          const preloader = document.getElementById('preloader');
+          const wrapper = document.getElementById('cd-wrapper');
+          const appRoot = document.getElementById('root');
+          const MAX_TILT_DEGREES = 30;
 
-        let rafId = null;
-        let isReactReady = false;
-        let minTimePassed = false;
+          let rafId = null;
+          let isReactReady = false;
+          let minTimePassed = false;
 
-        const handleMouseMove = (e) => {
-          if (rafId) return;
-          rafId = requestAnimationFrame(() => {
-            // Find the exact center of the whole browser window
-            const centerX = window.innerWidth / 2;
-            const centerY = window.innerHeight / 2;
+          const handleMouseMove = (e) => {
+            if (rafId) return;
+            rafId = requestAnimationFrame(() => {
+              // Find the exact center of the whole browser window
+              const centerX = window.innerWidth / 2;
+              const centerY = window.innerHeight / 2;
 
-            // Calculate the tilt based on window size
-            // We use `window.innerWidth / 2` as the divisor so the max tilt happens at the edges of the screen
-            const rotateY = ((e.clientX - centerX) / centerX) * MAX_TILT_DEGREES;
-            const rotateX = -((e.clientY - centerY) / centerY) * MAX_TILT_DEGREES;
+              // Calculate the tilt based on window size
+              // We use `window.innerWidth / 2` as the divisor so the max tilt happens at the edges of the screen
+              const rotateY = ((e.clientX - centerX) / centerX) * MAX_TILT_DEGREES;
+              const rotateX = -((e.clientY - centerY) / centerY) * MAX_TILT_DEGREES;
+
+              if (wrapper) {
+                wrapper.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+              }
+              rafId = null;
+            });
+          };
+
+          // The preloader hide function
+          const hidePreloader = () => {
+            if (!preloader || preloader.classList.contains('exit')) return;
+
+            document.removeEventListener('mousemove', handleMouseMove);
 
             if (wrapper) {
-              wrapper.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+              wrapper.style.transform = 'rotateX(0deg) rotateY(0deg)';
             }
-            rafId = null;
-          });
-        };
 
-        // The preloader hide function
-        const hidePreloader = () => {
-          if (!preloader || preloader.classList.contains('exit')) return;
-
-          document.removeEventListener('mousemove', handleMouseMove);
-
-          if (wrapper) {
-            wrapper.style.transform = 'rotateX(0deg) rotateY(0deg)';
-          }
-
-          preloader.classList.add('exit');
-          if (appRoot) {
-            appRoot.classList.add('ready');
-          }
-
-          // Remove from DOM after transition completes
-          setTimeout(() => {
-            if (preloader) {
-              preloader.remove()
+            preloader.classList.add('exit');
+            if (appRoot) {
+              appRoot.classList.add('ready');
             }
-            document.body.style.overflow = '';
-            document.documentElement.style.overflow = '';
-          }, 1500);
-        };
 
-        // Check if both conditions are met
-        const checkAndHide = () => {
-          if (isReactReady && minTimePassed) {
-            hidePreloader();
-          }
-        };
+            // Remove from DOM after transition completes
+            setTimeout(() => {
+              if (preloader) {
+                preloader.remove()
+              }
+              document.body.style.overflow = '';
+              document.documentElement.style.overflow = '';
+            }, 1500);
+          };
 
-        // React calls this when it's hydrated and ready
-        window.hidePreloader = () => {
-          isReactReady = true;
-          checkAndHide();
-        };
+          // Check if both conditions are met
+          const checkAndHide = () => {
+            if (isReactReady && minTimePassed) {
+              hidePreloader();
+            }
+          };
 
-        // Ensure a minimum display time (e.g., 4000ms) so the animation is seen
-        // and to prevent any flashing if React loads instantly.
-        setTimeout(() => {
-          minTimePassed = true;
-          checkAndHide();
-        }, 4000);
-
-        // Safety fallback: If something goes wrong and React never calls hidePreloader,
-        // force it to disappear after 10 seconds so the user isn't stuck forever.
-        setTimeout(() => {
-          if (!preloader.classList.contains('exit')) {
-            isReactReady = true; // Force it
+          // React calls this when it's hydrated and ready
+          window.hidePreloader = () => {
+            isReactReady = true;
             checkAndHide();
-          }
-        }, 10000); // 10000 to give React plenty of time even on slow connections
+          };
 
-        document.addEventListener('mousemove', handleMouseMove);
-      })();
+          // Ensure a minimum display time (e.g., 4000ms) so the animation is seen
+          // and to prevent any flashing if React loads instantly.
+          setTimeout(() => {
+            minTimePassed = true;
+            checkAndHide();
+          }, 4000);
+
+          // Safety fallback: If something goes wrong and React never calls hidePreloader,
+          // force it to disappear after 10 seconds so the user isn't stuck forever.
+          setTimeout(() => {
+            if (!preloader.classList.contains('exit')) {
+              isReactReady = true; // Force it
+              checkAndHide();
+            }
+          }, 10000); // 10000 to give React plenty of time even on slow connections
+
+          document.addEventListener('mousemove', handleMouseMove);
+        })();
     </script>
 
     <!-- React App script -->

@@ -1,3 +1,4 @@
+import Meta from '@/components/Meta'
 import VendingMachine from '@/components/VendingMachine'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
@@ -172,82 +173,86 @@ const Commissions = () => {
     }
 
     return (
-        <div className="min-h-screen bg-background text-foreground">
-            {/* ---------- HERO SECTION (Full Viewport) ---------- */}
-            <section className="h-[calc(100dvh-60px)] flex flex-col items-center justify-center px-6 relative">
-                <div className="absolute left-2/33 top-1/6 -translate-y-4/5 text-center w-md max-w-full py-4 pointer-events-none">
-                    <p className="intro-txt text-base md:text-lg text-foreground">
-                        Want your cover song mixed?
-                    </p>
-                    <p className="intro-txt text-base md:text-lg text-foreground">
-                        Or maybe want to create an original song?
-                    </p>
-                    <p className="intro-txt text-base md:text-lg text-pink-500">
-                        Maybe I can help...
-                    </p>
-                </div>
+        <>
+            <Meta />
 
-                {/* Vending Machine */}
-                <div className="flex justify-center w-full">
-                    <VendingMachine />
-                </div>
-            </section>
-
-            {/* ---------- SERVICES ---------- */}
-            <section ref={servicesRef} className="px-6 py-20 max-w-4xl mx-auto">
-                <div className="max-w-6xl mx-auto">
-                    <div className="text-center mb-12">
-                        <h2 className="text-3xl md:text-4xl font-black">
-                            What you can commission
-                        </h2>
+            <div className="min-h-screen bg-background text-foreground">
+                {/* ---------- HERO SECTION (Full Viewport) ---------- */}
+                <section className="h-[calc(100dvh-60px)] flex flex-col items-center justify-center px-6 relative">
+                    <div className="absolute left-2/33 top-1/6 -translate-y-4/5 text-center w-md max-w-full py-4 pointer-events-none">
+                        <p className="intro-txt text-base md:text-lg text-foreground">
+                            Want your cover song mixed?
+                        </p>
+                        <p className="intro-txt text-base md:text-lg text-foreground">
+                            Or maybe want to create an original song?
+                        </p>
+                        <p className="intro-txt text-base md:text-lg text-pink-500">
+                            Maybe I can help...
+                        </p>
                     </div>
-                    <div className="grid sm:grid-cols-2 gap-4">
-                        {SERVICES.map(s => (
+
+                    {/* Vending Machine */}
+                    <div className="flex justify-center w-full">
+                        <VendingMachine />
+                    </div>
+                </section>
+
+                {/* ---------- SERVICES ---------- */}
+                <section ref={servicesRef} className="px-6 py-20 max-w-4xl mx-auto">
+                    <div className="max-w-6xl mx-auto">
+                        <div className="text-center mb-12">
+                            <h2 className="text-3xl md:text-4xl font-black">
+                                What you can commission
+                            </h2>
+                        </div>
+                        <div className="grid sm:grid-cols-2 gap-4">
+                            {SERVICES.map(s => (
+                                <div
+                                    key={s.id}
+                                    className="service-card bg-background rounded-xl border border-border p-6 hover:border-foreground/20 transition-colors"
+                                >
+                                    <div className="text-3xl mb-3">{s.icon}</div>
+                                    <h3 className="font-black mb-2">{s.title}</h3>
+                                    <p className="text-sm text-muted-foreground leading-relaxed">
+                                        {s.description}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+
+                {/* ---------- FAQ ---------- */}
+                <section ref={faqRef} className="px-6 py-20 max-w-3xl mx-auto">
+                    <div className="text-center mb-12">
+                        <h2 className="text-3xl md:text-4xl font-black">FAQ</h2>
+                    </div>
+                    <div className="space-y-3">
+                        {FAQ.map(item => (
                             <div
-                                key={s.id}
-                                className="service-card bg-background rounded-xl border border-border p-6 hover:border-foreground/20 transition-colors"
+                                key={item.id}
+                                className="faq-item border border-border rounded-xl overflow-hidden"
                             >
-                                <div className="text-3xl mb-3">{s.icon}</div>
-                                <h3 className="font-black mb-2">{s.title}</h3>
-                                <p className="text-sm text-muted-foreground leading-relaxed">
-                                    {s.description}
-                                </p>
+                                <button
+                                    onClick={() => toggleFaq(item.id)}
+                                    className="w-full flex items-center justify-between gap-4 p-5 text-left hover:bg-muted transition-colors"
+                                >
+                                    <span className="font-semibold">{item.q}</span>
+                                    <span className="shrink-0 text-muted-foreground text-xl leading-none select-none">
+                                        {openFaq === item.id ? '−' : '+'}
+                                    </span>
+                                </button>
+                                {openFaq === item.id && (
+                                    <div className="px-5 pb-5 text-muted-foreground leading-relaxed text-sm">
+                                        {item.a}
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
-                </div>
-            </section>
-
-            {/* ---------- FAQ ---------- */}
-            <section ref={faqRef} className="px-6 py-20 max-w-3xl mx-auto">
-                <div className="text-center mb-12">
-                    <h2 className="text-3xl md:text-4xl font-black">FAQ</h2>
-                </div>
-                <div className="space-y-3">
-                    {FAQ.map(item => (
-                        <div
-                            key={item.id}
-                            className="faq-item border border-border rounded-xl overflow-hidden"
-                        >
-                            <button
-                                onClick={() => toggleFaq(item.id)}
-                                className="w-full flex items-center justify-between gap-4 p-5 text-left hover:bg-muted transition-colors"
-                            >
-                                <span className="font-semibold">{item.q}</span>
-                                <span className="shrink-0 text-muted-foreground text-xl leading-none select-none">
-                                    {openFaq === item.id ? '−' : '+'}
-                                </span>
-                            </button>
-                            {openFaq === item.id && (
-                                <div className="px-5 pb-5 text-muted-foreground leading-relaxed text-sm">
-                                    {item.a}
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            </section>
-        </div >
+                </section>
+            </div >
+        </>
     )
 }
 
