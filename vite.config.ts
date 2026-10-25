@@ -12,6 +12,7 @@ export default defineConfig({
     tailwindcss(),
     {
       name: 'vite-plugin-seo-prerender',
+      apply: 'build',
       closeBundle() {
         const outDir = path.resolve(import.meta.dirname, 'dist')
         const template = fs.readFileSync(path.join(outDir, 'index.html'), 'utf8')
