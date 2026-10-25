@@ -15,7 +15,7 @@ createRoot(document.getElementById('root')!).render(
           <Route index element={<Home />} />
           <Route path="discography" element={<Discography />} />
           <Route path="commissions" element={<Commissions />} />
-          <Route path='/*' element={<NotFoundPage />} />
+          <Route path='*' element={<NotFoundPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
