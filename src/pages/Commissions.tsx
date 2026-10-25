@@ -178,8 +178,8 @@ const Commissions = () => {
 
             <div className="min-h-screen bg-background text-foreground">
                 {/* ---------- HERO SECTION (Full Viewport) ---------- */}
-                <section className="h-[calc(100dvh-60px)] flex flex-col items-center justify-center px-6 relative">
-                    <div className="absolute left-2/33 top-1/6 -translate-y-4/5 text-center w-md max-w-full py-4 pointer-events-none">
+                <section className="min-h-[calc(100dvh-60px)] flex flex-col items-center justify-center px-6 relative">
+                    <div className="absolute left-1/2 top-0 -translate-x-1/2 translate-y md:left-2/33 md:top-1/6 md:translate-x-0 md:-translate-y-4/5 text-center w-md max-w-full py-4 pointer-events-none">
                         <p className="intro-txt text-base md:text-lg text-foreground">
                             Want your cover song mixed?
                         </p>

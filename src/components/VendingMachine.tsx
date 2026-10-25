@@ -1751,7 +1751,7 @@ const VendingMachine = () => {
   // --- Render ---
   return (
     <div
-      className="flex flex-row items-center justify-center gap-12 p-8 relative"
+      className="flex flex-col md:flex-row items-center justify-center gap-12 md:p-8 relative"
       ref={containerRef}
     >
       <style>{`
@@ -1765,7 +1765,7 @@ const VendingMachine = () => {
       `}</style>
 
       {/* MAIN MACHINE */}
-      <div className="machine-container w-md min-h-96 h-130 bg-linear-to-br from-slate-200 via-slate-300 to-slate-400 rounded-md shadow-lg p-4 mx-auto relative">
+      <div className="machine-container min-w-2xs w-[calc(100vw-3rem)] xs:w-md min-h-96 h-130 bg-linear-to-br from-slate-200 via-slate-300 to-slate-400 rounded-md shadow-lg p-4 mx-auto relative mt-26">
         <div className="w-full h-72 bg-white/50 border-2 border-gray-300 rounded-t-lg relative">
           <div className="absolute inset-x-3 bottom-3 top-8 z-40">
             {pileLayout.map((spot, i) => {
@@ -1908,7 +1908,7 @@ const VendingMachine = () => {
               length === 0 ||
               capsuleInBucketIndex !== null
             }
-            className="relative size-26 bg-gray-100 shadow rounded-full after:content-[''] after:absolute after:h-16 after:w-4 after:bg-white after:shadow after:left-1/2 after:top-1/2 after:-translate-1/2 after:border-r-2 after:border-r-gray-300 before:content-[''] before:absolute before:size-17 before:rounded-full before:border-2 before:border-gray-200 before:left-1/2 before:top-1/2 before:-translate-1/2"
+            className="relative translate-x-1/6 sm:translate-x-0 size-26 bg-gray-100 shadow rounded-full after:content-[''] after:absolute after:h-16 after:w-4 after:bg-white after:shadow after:left-1/2 after:top-1/2 after:-translate-1/2 after:border-r-2 after:border-r-gray-300 before:content-[''] before:absolute before:size-17 before:rounded-full before:border-2 before:border-gray-200 before:left-1/2 before:top-1/2 before:-translate-1/2"
           >
             <span className="sr-only">SPIN</span>
           </button>
@@ -1988,7 +1988,7 @@ const VendingMachine = () => {
       </div>
 
       {/* PHONE & COIN BOX */}
-      <div className="flex flex-col items-center gap-8 w-72">
+      <div className="flex flex-col-reverse md:flex-col items-center gap-8 w-72">
         <div className="phone-container w-full h-137.5 bg-stone-900 rounded-[40px] p-2 shadow-2xl border-4 border-stone-800 relative flex flex-col select-none">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-6 bg-stone-900 rounded-b-2xl z-20 flex items-center justify-center">
             <div className="w-12 h-1.5 bg-stone-700 rounded-full"></div>
