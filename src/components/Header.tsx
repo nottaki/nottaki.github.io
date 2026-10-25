@@ -1,6 +1,8 @@
 import { cn } from "@/lib/utils"
+import { useGSAP } from "@gsap/react"
 import { Icon } from "@iconify/react"
-import type { ReactNode } from "react"
+import gsap from "gsap"
+import { useRef, type ReactNode } from "react"
 import { NavLink } from "react-router"
 
 const LINKS = [
@@ -10,14 +12,55 @@ const LINKS = [
 ]
 
 const Header = () => {
+    const logoRef = useRef<HTMLDivElement | null>(null)
+    const tl = useRef<GSAPTimeline | null>(null)
+
+    useGSAP(() => {
+        const el = logoRef.current
+        if (!el) return
+
+        tl.current = gsap.timeline({ paused: true })
+            .to("#logo-not", {
+                x: -5,
+                ease: "elastic"
+            })
+            .to("#logo-taki", {
+                x: 5,
+                ease: "elastic"
+            }, "<")
+            .to("#logo-not", {
+                duration: 1,
+                text: "definitely not"
+            })
+            .to("#logo-taki", {
+                text: {
+                    value: "Taki !",
+                    type: "diff"
+                },
+                x: 0,
+                ease: "elastic"
+            })
+
+        const handleMouseEnter = () => tl.current?.play()
+        const handleMouseLeave = () => tl.current?.reverse()
+
+        el.addEventListener("mouseenter", handleMouseEnter)
+        el.addEventListener("mouseleave", handleMouseLeave)
+
+        return () => {
+            el.removeEventListener("mouseenter", handleMouseEnter)
+            el.removeEventListener("mouseleave", handleMouseLeave)
+        }
+    }, { scope: logoRef })
+
     return (
         <header className="z-9 px-8 py-4 flex justify-between items-center">
             <div
-                id="kind-of-logo-yu-know"
-                className="text-xl font-bold tracking-wide cursor-default"
+                ref={logoRef}
+                className="text-xl font-bold tracking-wide cursor-default inline-flex items-center"
             >
-                <span>not</span>
-                <span>Taki</span>
+                <p id="logo-not">not</p>
+                <p id="logo-taki">Taki</p>
             </div>
 
             <nav className="flex gap-8">

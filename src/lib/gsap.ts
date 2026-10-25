@@ -3,8 +3,9 @@ import { gsap } from "gsap"
 import Lenis from 'lenis'
 
 import { ScrollTrigger } from "gsap/ScrollTrigger"
+import { TextPlugin } from "gsap/TextPlugin"
 
-gsap.registerPlugin(useGSAP, ScrollTrigger)
+gsap.registerPlugin(useGSAP, ScrollTrigger, TextPlugin)
 
 export const lenis = new Lenis()
 lenis.on('scroll', ScrollTrigger.update)
