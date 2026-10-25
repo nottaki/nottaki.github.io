@@ -1,3 +1,4 @@
+import { siteConfig } from "@/constants"
 import { claimMission, fetchMachineState, submitSpinToBackend, type Mission } from "@/lib/gachaApi"
 import { SOUNDS, playSound } from "@/lib/sounds"
 import { cn } from "@/lib/utils"
@@ -41,7 +42,9 @@ const METER_SEGMENTS = Array.from({ length: SPIN_COST }, (_, i) => ({
   id: `meter-seg-${i}`,
 }))
 
-type PrizeId =
+const SHARE_HASHTAG = '#definitelyNotPrize #notTaki #誰'
+
+export type PrizeId =
   | "ticket"
   | "rock"
   | "potato"
@@ -485,7 +488,7 @@ const COFFEE_BEAN_SPOTS = Array.from({ length: 10 }).map((_, i) => ({
   rot: seededRandom(i * 97 + 3) * 360,
 }))
 
-const PRIZE_META: Record<
+export const PRIZE_META: Record<
   Exclude<PrizeId, "ticket">,
   {
     label: string
@@ -507,7 +510,7 @@ const PRIZE_META: Record<
   potato: {
     label: "A Potato",
     backText: "This potato was grown by my great-grandfather and has been passed down through my family ever since. Now it is yours. I think it is still edible. If you feel unwell after the first bite, please call 119 immediately.",
-    shareText: "I just won A POTATO from the gacha machine. It is a family heirloom passed down from thier great-grandfather. Eh!? Wait, does accepting it mean I am part of the family now? ...Do I have to attend the reunions?",
+    shareText: "I just won A POTATO from the gacha machine. It is a family heirloom passed down from their great-grandfather. Eh!? Wait, does accepting it mean I am part of the family now? ...Do I have to attend the reunions?",
     chipText: "How would you like me to deliver it to you?",
     cardClass: "bg-linear-to-br from-amber-100 to-amber-200 border-amber-400",
     Icon: PotatoIcon,
@@ -562,7 +565,7 @@ const PRIZE_META: Record<
   },
 }
 
-const PrizeCardFace = ({
+export const PrizeCardFace = ({
   prize,
   back,
 }: {
@@ -634,6 +637,31 @@ const PrizeModal = ({
   const lastXRef = useRef(0)
 
   const isTicket = data.prize === "ticket"
+  const [copied, setCopied] = useState(false)
+
+  const shareUrlFor = (prize: string) =>
+    `${siteConfig.url}/share/${prize}/index.html`
+
+  const shareOnX = () => {
+    if (isTicket) return
+    const meta = PRIZE_META[data.prize as Exclude<PrizeId, 'ticket'>]
+    const text = `${meta.shareText} ${SHARE_HASHTAG}`
+    const url = `https://x.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrlFor(data.prize as string))}`
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
+  const copyShare = async () => {
+    if (isTicket) return
+    const meta = PRIZE_META[data.prize as Exclude<PrizeId, 'ticket'>]
+    const payload = `${meta.shareText}\n\n${SHARE_HASHTAG}\n${shareUrlFor(data.prize as string)}`
+    try {
+      await navigator.clipboard.writeText(payload)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1600)
+    } catch {
+      window.prompt('Clipboard is shy today, copy it manually:', payload)
+    }
+  }
 
   useEffect(() => {
     const root = rootRef.current
@@ -746,13 +774,6 @@ const PrizeModal = ({
     link.click()
   }
 
-  const shareOnX = () => {
-    if (isTicket) return
-    const meta = PRIZE_META[data.prize as Exclude<PrizeId, "ticket">]
-    const url = `https://x.com/intent/tweet?text=${encodeURIComponent(meta.shareText)}`
-    window.open(url, "_blank", "noopener,noreferrer")
-  }
-
   return (
     <div
       ref={rootRef}
@@ -836,7 +857,7 @@ const PrizeModal = ({
           )}
         </div>
       </div>
-      <div className="absolute bottom-8 inset-x-0 flex items-center justify-center gap-3 px-4">
+      <div className="absolute bottom-8 inset-x-0 flex flex-wrap items-center justify-center gap-3 px-4">
         {isTicket ? (
           <button
             onClick={saveAsImage}
@@ -845,12 +866,20 @@ const PrizeModal = ({
             Download Ticket
           </button>
         ) : (
-          <button
-            onClick={shareOnX}
-            className="px-6 py-2.5 bg-black hover:bg-neutral-800 text-white rounded-lg font-semibold shadow-lg transition-colors"
-          >
-            Share on X
-          </button>
+          <>
+            <button
+              onClick={shareOnX}
+              className="px-6 py-2.5 bg-black hover:bg-neutral-800 text-white rounded-lg font-semibold shadow-lg transition-colors"
+            >
+              Share on X
+            </button>
+            <button
+              onClick={copyShare}
+              className="px-6 py-2.5 bg-neutral-400 hover:bg-neutral-400/80 text-white rounded-lg font-semibold border border-white/25 backdrop-blur-sm transition-colors w-40"
+            >
+              {copied ? 'Copied!' : 'Copy & share'}
+            </button>
+          </>
         )}
         <button
           onClick={onClose}
