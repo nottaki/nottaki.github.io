@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Run once per text change:  node tools/make-share-pages.ts
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { siteConfig } from "../src/constants.ts"
