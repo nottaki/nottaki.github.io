@@ -50,7 +50,7 @@ const App = () => {
         <Outlet />
 
         <div className={cn(
-          "fixed right-0 bottom-0 -translate-x-1/6 -translate-y-4/5 md:-translate-y-1/2 [writing-mode:vertical-lr] flex items-center gap-2 group transition-all duration-700 ease-in-out",
+          "fixed right-0 bottom-0 xs:-translate-x-1/6 -translate-y-4/5 md:-translate-y-1/2 [writing-mode:vertical-lr] flex items-center gap-2 group transition-all duration-700 ease-in-out",
           isScrolled ? "opacity-100 visible" : "opacity-0 invisible"
         )}>
           <div
