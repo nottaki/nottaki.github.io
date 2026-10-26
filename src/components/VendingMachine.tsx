@@ -1,4 +1,4 @@
-import { siteConfig } from "@/constants"
+import { siteConfig } from "@/siteconfig"
 import { claimMission, fetchMachineState, submitSpinToBackend, type Mission } from "@/lib/gachaApi"
 import { SOUNDS, playSound } from "@/lib/sounds"
 import { cn } from "@/lib/utils"

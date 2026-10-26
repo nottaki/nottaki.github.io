@@ -1,4 +1,4 @@
-import { siteConfig } from '@/constants'
+import { siteConfig } from '@/siteconfig'
 import { pages } from '@/seo'
 import { buildMetaConfig } from '@/utils/meta-utils'
 

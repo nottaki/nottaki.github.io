@@ -1,4 +1,4 @@
-import { siteConfig } from '../constants.ts'
+import { siteConfig } from '../siteconfig.ts'
 
 export type PageMetaInput = {
     path: string
