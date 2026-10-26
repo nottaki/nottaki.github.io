@@ -7,5 +7,5 @@ export {
     Commissions,
     Discography,
     Home,
-    NotFoundPage
+    NotFoundPage,
 }
