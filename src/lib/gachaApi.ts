@@ -1,19 +1,5 @@
 const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:5173"
 
-const getDeviceId = (): string => {
-    let id = localStorage.getItem('gachaDeviceId')
-    if (!id) {
-        id = crypto.randomUUID()
-        localStorage.setItem('gachaDeviceId', id)
-    }
-    return id
-}
-
-const getHeaders = () => ({
-    'x-device-id': getDeviceId(),
-    'Content-Type': 'application/json'
-})
-
 export interface Mission {
     id: number
     title: string
@@ -30,6 +16,20 @@ export interface MachineState {
     missions: Mission[]
     canWinTicket: boolean
 }
+
+const getDeviceId = (): string => {
+    let id = localStorage.getItem('gachaDeviceId')
+    if (!id) {
+        id = crypto.randomUUID()
+        localStorage.setItem('gachaDeviceId', id)
+    }
+    return id
+}
+
+const getHeaders = () => ({
+    'x-device-id': getDeviceId(),
+    'Content-Type': 'application/json'
+})
 
 export const fetchMachineState = async (): Promise<MachineState> => {
     const res = await fetch(`${API_BASE}/api/state`, {
