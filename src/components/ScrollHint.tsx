@@ -32,7 +32,7 @@ const ScrollHint = () => {
         <div
             className={cn(
                 "pointer-events-none fixed bottom-5 left-1/2 -translate-x-1/2 z-90 flex flex-col items-center gap-1.5 transition-all duration-500",
-                visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
+                visible ? "opacity-100 translate-y-3" : "opacity-0 translate-y-6"
             )}
             aria-hidden="true"
         >
