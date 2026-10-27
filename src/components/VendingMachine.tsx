@@ -2127,7 +2127,6 @@ const VendingMachine = () => {
 
               {missions.map((m) => {
                 const visited = visitedIds[m.id] === jstDateStr()
-                const showClaim = !m.url || visited
                 const holding = hold?.id === m.id
                 return (
                   <div
@@ -2148,20 +2147,6 @@ const VendingMachine = () => {
                       </p>
                     )}
                     <div className="flex gap-2">
-                      {m.url && !visited && (
-                        <a
-                          href={m.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={() => markVisited(m.id)}
-                          className={cn(
-                            "text-center text-xs bg-stone-100 hover:bg-stone-200 text-stone-600 py-2 rounded-lg font-medium transition-colors",
-                            showClaim ? "flex-1" : "flex-2",
-                          )}
-                        >
-                          {m.cta_text || "Visit"}
-                        </a>
-                      )}
                       {m.completed ? (
                         <span className="flex-[1.5] text-center text-xs py-2 rounded-lg font-bold bg-green-50 text-green-500 border border-green-100">
                           Claimed
