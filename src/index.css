@@ -118,4 +118,16 @@
     #root {
         @apply w-fit h-fit min-w-screen min-h-dvh flex flex-col;
     }
+
+    a:not(nav a):not(.not-really-a-el) {
+        @apply relative after:content-[''] after:absolute after:w-full after:h-px after:bg-current after:left-1/2 after:bottom-0 after:-translate-x-1/2 hover:bg-foreground hover:text-background hover:after:translate-y-[-1.8ch] transition-all duration-500 ease-in-out after:transition-all after:duration-300 after:ease-in-out;
+    }
+
+    .text-outline {
+        -webkit-text-stroke: 0.5px black;
+    }
+}
+
+.prose p {
+    margin-bottom: 0.75rem;
 }
