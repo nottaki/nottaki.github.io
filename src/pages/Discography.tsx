@@ -375,7 +375,18 @@ const Discography = () => {
                                 title={sortOrder === 'newest' ? 'Sort: New to Old' : 'Sort: Old to New'}
                                 aria-label={sortOrder === 'newest' ? 'Switch to oldest first' : 'Switch to newest first'}
                             >
-                                <Icon icon={sortOrder === 'newest' ? 'andrsrxn:calendar-out' : 'andrsrxn:calendar-in'} className="text-base sm:text-lg" />
+                                <Icon icon={sortOrder === 'newest'
+                                    ? {
+                                        "width": 24,
+                                        "height": 24,
+                                        "body": "<g fill=\"none\"><rect width=\"17.97\" height=\"5.25\" x=\"3.01\" y=\"3.46\" fill=\"currentColor\" opacity=\".2\" rx=\"1\"/><path stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M20.98 12.55v-3.1c0-2.82 0-4.23-.88-5.11s-2.3-.88-5.12-.88H9c-2.83 0-4.25 0-5.12.88S3 6.64 3 9.46v5.97c0 2.83 0 4.24.88 5.12c.87.88 2.29.88 5.12.88h3.4M7.68 1.76v3.4m8.68-3.4v3.4m4.2 3.54H3.83M21.6 19.22l-.32.31c-1.33 1.34-2 2-2.82 2c-.83 0-1.5-.66-2.84-2l-.3-.3m3.13-3.99v5.87\"/></g>"
+                                    }
+                                    : {
+                                        "width": 24,
+                                        "height": 24,
+                                        "body": "<g fill=\"none\"><rect width=\"17.97\" height=\"5.25\" x=\"3.01\" y=\"3.46\" fill=\"currentColor\" opacity=\".2\" rx=\"1\"/><path stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M20.98 12.55v-3.1c0-2.82 0-4.23-.88-5.11s-2.3-.88-5.12-.88H9c-2.83 0-4.25 0-5.12.88S3 6.64 3 9.46v5.97c0 2.83 0 4.24.88 5.12c.87.88 2.29.88 5.12.88h3.4M7.68 1.76v3.4m8.68-3.4v3.4m4.2 3.54H3.83\"/><path stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"m21.62 17.96l-.3-.3c-1.34-1.34-2-2-2.83-2c-.83-.01-1.5.66-2.84 2l-.3.3m3.13 3.99v-5.88\"/></g>"
+                                    }
+                                } className="text-base sm:text-lg" />
                                 <span className="hidden sm:inline">{sortOrder === 'newest' ? 'Newest' : 'Oldest'}</span>
                             </button>
                         </header>
@@ -417,7 +428,14 @@ const Discography = () => {
                                     onClick={handleBack}
                                     className="flex items-center gap-2 px-4 py-2 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors text-sm font-medium text-gray-600 hover:text-gray-900 mb-12 group"
                                 >
-                                    <Icon icon="akar-icons:arrow-left" className="text-base transition-transform group-hover:-translate-x-1" />
+                                    <Icon
+                                        icon={{
+                                            "width": 24,
+                                            "height": 24,
+                                            "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"m11 5l-7 7l7 7m-7-7h16\"/>"
+                                        }}
+                                        className="text-base transition-transform group-hover:-translate-x-1"
+                                    />
                                     Back to all releases
                                 </button>
 
