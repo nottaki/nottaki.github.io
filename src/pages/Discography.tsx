@@ -460,7 +460,7 @@ const Discography = () => {
                                                 href={platform.link}
                                                 target="_blank"
                                                 rel="noopener"
-                                                className="not-really-a-el streaming-link opacity-0 flex items-center justify-between w-full px-5 py-4 bg-white border border-gray-200 rounded-md transition-transform duration-150 hover:border-gray-400 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:shadow-inner active:border-gray-300 group shrink-0"
+                                                className="streaming-link opacity-0 flex items-center justify-between w-full px-5 py-4 bg-white border border-gray-200 rounded-md transition-transform duration-150 hover:border-gray-400 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:shadow-inner active:border-gray-300 group shrink-0"
                                             >
                                                 <div className="flex items-center gap-3">
                                                     <Icon icon={platform.icon} className="text-xl text-gray-700 group-hover:text-black transition-colors" />

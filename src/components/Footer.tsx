@@ -36,7 +36,7 @@ const Footer = () => {
                                 title={sns.name}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="not-really-a-el active:translate-y-px transition-all duration-300 ease-in-out"
+                                className="active:translate-y-px transition-all duration-300 ease-in-out"
                             >
                                 <Icon icon={sns.icon} width={20} height={20} />
                             </a>
