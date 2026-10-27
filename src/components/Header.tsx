@@ -1,14 +1,38 @@
 import { cn } from "@/lib/utils"
 import { useGSAP } from "@gsap/react"
-import { Icon } from "@iconify/react"
+import { Icon, type IconifyIcon } from "@iconify/react"
 import gsap from "gsap"
 import { useRef, type ReactNode } from "react"
 import { NavLink, useLocation } from "react-router"
 
 const LINKS = [
-    { href: '/', label: 'Home', icon: 'boxicons:home-alt-2' },
-    { href: '/discography', label: 'Discography', icon: 'boxicons:list-music' },
-    { href: '/commissions', label: 'Commissions', icon: 'vadivam:users-collaboration' },
+    {
+        href: '/',
+        label: 'Home',
+        icon: {
+            "width": 24,
+            "height": 24,
+            "body": "<path fill=\"currentColor\" d=\"M12.71 2.29a.996.996 0 0 0-1.41 0l-8.01 8A1 1 0 0 0 3 11v9c0 1.1.9 2 2 2h4c.55 0 1-.45 1-1v-6h4v6c0 .55.45 1 1 1h4c1.1 0 2-.9 2-2v-9c0-.27-.11-.52-.29-.71zM16 20v-5c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v5H5v-8.59l7-7l7 7V20z\"/>"
+        }
+    },
+    {
+        href: '/discography',
+        label: 'Discography',
+        icon: {
+            "width": 24,
+            "height": 24,
+            "body": "<path fill=\"currentColor\" d=\"M3 11h12v2H3zm0-5h12v2H3zm0 10h9v2H3zm14-9v8.05a2.5 2.5 0 1 0-.5 4.95a2.5 2.5 0 0 0 2.5-2.5V8h2V6h-3c-.55 0-1 .45-1 1\"/>"
+        }
+    },
+    {
+        href: '/commissions',
+        label: 'Commissions',
+        icon: {
+            "width": 24,
+            "height": 24,
+            "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M11 13.5c-.285-4.667-8.715-4.667-9 0M22 22c-.285-4.667-8.715-4.667-9 0m1.619-19.132a9.5 9.5 0 0 1 5.067 3.548M9.381 21.132a9.5 9.5 0 0 1-5.067-3.548M4 4.5a2.5 2.5 0 1 0 5 0a2.5 2.5 0 0 0-5 0M15 13a2.5 2.5 0 1 0 5 0a2.5 2.5 0 0 0-5 0\"/>"
+        }
+    },
 ]
 
 const Header = () => {
@@ -110,7 +134,7 @@ const Header = () => {
 interface LinkProps {
     children: ReactNode
     className?: string
-    icon: string
+    icon: IconifyIcon
     to: string
 }
 
