@@ -33,6 +33,15 @@ const LINKS = [
             "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M11 13.5c-.285-4.667-8.715-4.667-9 0M22 22c-.285-4.667-8.715-4.667-9 0m1.619-19.132a9.5 9.5 0 0 1 5.067 3.548M9.381 21.132a9.5 9.5 0 0 1-5.067-3.548M4 4.5a2.5 2.5 0 1 0 5 0a2.5 2.5 0 0 0-5 0M15 13a2.5 2.5 0 1 0 5 0a2.5 2.5 0 0 0-5 0\"/>"
         }
     },
+    {
+        href: '/contact',
+        label: 'Contact',
+        icon: {
+            "width": 36,
+            "height": 36,
+            "body": "<path fill=\"currentColor\" d=\"M8 19v-8H5a3 3 0 0 0-3 3v18a1 1 0 0 0 .56.89a1 1 0 0 0 1-.1L8.71 29h13.44A2.77 2.77 0 0 0 25 26.13V25H14a6 6 0 0 1-6-6\" class=\"clr-i-solid clr-i-solid-path-1\"/><path fill=\"currentColor\" d=\"M31 4H14a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h13.55l4.78 3.71a1 1 0 0 0 1 .11a1 1 0 0 0 .57-.9V7A3 3 0 0 0 31 4\" class=\"clr-i-solid clr-i-solid-path-2\"/><path fill=\"none\" d=\"M0 0h36v36H0z\"/>"
+        }
+    },
 ]
 
 const Header = () => {
@@ -47,27 +56,22 @@ const Header = () => {
         if (!el) return
 
         tl.current = gsap.timeline({ paused: true })
+        const validPage = LINKS.find(l => l.href === location.pathname)
 
-        if (location.pathname === "/discography") {
-            gsap.to("#logo-not", {
-                scrambleText: "Disco",
-            })
-            gsap.to("#logo-taki", {
-                text: "graphy"
-            })
-        } else if (location.pathname === "/commissions") {
-            gsap.to("#logo-not", {
-                scrambleText: "Commis"
-            })
-            gsap.to("#logo-taki", {
-                text: "sions"
-            })
-        } else {
+        if (location.pathname === "/" || !validPage) {
             gsap.to("#logo-not", {
                 scrambleText: "not"
             })
             gsap.to("#logo-taki", {
                 text: "Taki"
+            })
+        } else {
+            const title = validPage.label
+            gsap.to("#logo-not", {
+                scrambleText: title.substring(0, Math.floor(title.length / 2)),
+            })
+            gsap.to("#logo-taki", {
+                text: title.substring(Math.floor(title.length / 2)),
             })
         }
 
@@ -115,7 +119,7 @@ const Header = () => {
                 <p id="logo-taki">Taki</p>
             </h1>
 
-            <nav className="flex gap-6 xs:gap-8">
+            <nav className="flex gap-3 xs:gap-6">
                 {LINKS.map((link) => (
                     <Link
                         key={link.href}
