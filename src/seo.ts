@@ -24,6 +24,13 @@ export const pages: PageMetaInput[] = [
         ogImage: `${siteConfig.url}/images/og-commissions.jpg`,
     },
     {
+        path: '/contact',
+        title: 'Contact',
+        description: "Questions, collabs, or just want to say 'hello'? Feel free to reach out to me using the contact form ~ („• ֊ •„)",
+        keywords: ['contact notTaki', 'nottaki contact', 'how to contact nottaki', 'collab', 'music production'],
+        ogImage: `${siteConfig.url}/images/og-contact.jpg`,
+    },
+    {
         path: '/404',
         title: '404 - Page Not Found',
         description: "Oops! It looks like the page you are looking for doesn't exist.",

@@ -1,3 +1,4 @@
+import Meta from "@/components/Meta"
 import { submitContactForm } from "@/lib/contactApi"
 import { cn } from "@/lib/utils"
 import { Icon, type IconifyIcon } from "@iconify/react"
@@ -277,38 +278,45 @@ const Contact = () => {
 
     if (status === "success") {
         return (
-            <div className="min-h-[calc(100dvh-60px)] bg-background text-foreground flex items-center justify-center px-4 py-16">
-                <div className="w-full max-w-md text-center space-y-5 anim-rise">
-                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-pink-100">
-                        <Icon
-                            icon={{
-                                "width": 24,
-                                "height": 24,
-                                "body": "<g fill=\"none\"><path fill=\"currentColor\" d=\"M12.43 21.86a9.8 9.8 0 1 0-9.8-9.8q.01 1.24.14 2.02a10 10 0 0 1 .16 1.43c-.02.2-.1.47-.25.99l-.08.24c-.71 2.39-1.07 3.59-.54 4.37a2 2 0 0 0 .36.4c.71.62 1.94.4 4.4-.02a5 5 0 0 1 .73-.1c.15 0 .34.04.72.1c.88.15 2.44.37 4.16.37\" opacity=\".2\"/><path stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M12.43 21.86a9.8 9.8 0 1 0-9.8-9.8q.01 1.24.14 2.02a10 10 0 0 1 .16 1.43c-.02.2-.1.47-.25.99l-.08.24c-.71 2.39-1.07 3.59-.54 4.37a2 2 0 0 0 .36.4c.71.62 1.94.4 4.4-.02a5 5 0 0 1 .73-.1c.15 0 .34.04.72.1c.88.15 2.44.37 4.16.37\"/><path stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"m7.84 12.94l1.26 1.54c.71.88 1.07 1.32 1.55 1.32s.83-.44 1.55-1.32l4.38-5.41\"/></g>"
-                            }}
-                            className="h-7 w-7 text-pink-500"
-                        />
+            <>
+                <Meta />
+
+                <div className="min-h-[calc(100dvh-60px)] bg-background text-foreground flex items-center justify-center px-4 py-16">
+                    <div className="w-full max-w-md text-center space-y-5 anim-rise">
+                        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-pink-100">
+                            <Icon
+                                icon={{
+                                    "width": 24,
+                                    "height": 24,
+                                    "body": "<g fill=\"none\"><path fill=\"currentColor\" d=\"M12.43 21.86a9.8 9.8 0 1 0-9.8-9.8q.01 1.24.14 2.02a10 10 0 0 1 .16 1.43c-.02.2-.1.47-.25.99l-.08.24c-.71 2.39-1.07 3.59-.54 4.37a2 2 0 0 0 .36.4c.71.62 1.94.4 4.4-.02a5 5 0 0 1 .73-.1c.15 0 .34.04.72.1c.88.15 2.44.37 4.16.37\" opacity=\".2\"/><path stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M12.43 21.86a9.8 9.8 0 1 0-9.8-9.8q.01 1.24.14 2.02a10 10 0 0 1 .16 1.43c-.02.2-.1.47-.25.99l-.08.24c-.71 2.39-1.07 3.59-.54 4.37a2 2 0 0 0 .36.4c.71.62 1.94.4 4.4-.02a5 5 0 0 1 .73-.1c.15 0 .34.04.72.1c.88.15 2.44.37 4.16.37\"/><path stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"m7.84 12.94l1.26 1.54c.71.88 1.07 1.32 1.55 1.32s.83-.44 1.55-1.32l4.38-5.41\"/></g>"
+                                }}
+                                className="h-7 w-7 text-pink-500"
+                            />
+                        </div>
+                        <h1 className="text-2xl font-black tracking-tight">Your note is in.</h1>
+                        <p className="text-sm text-muted-foreground">
+                            Thank you for trusting me with it. I read every message myself, and I will reply
+                            through your {methodMeta?.label ?? "chosen contact"} as soon as I can.
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => navigate("/")}
+                            className="inline-flex h-11 items-center justify-center rounded-md bg-pink-500 px-6 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-pink-600"
+                        >
+                            Back to Home
+                        </button>
                     </div>
-                    <h1 className="text-2xl font-black tracking-tight">Your note is in.</h1>
-                    <p className="text-sm text-muted-foreground">
-                        Thank you for trusting me with it. I read every message myself, and I will reply
-                        through your {methodMeta?.label ?? "chosen contact"} as soon as I can.
-                    </p>
-                    <button
-                        type="button"
-                        onClick={() => navigate("/")}
-                        className="inline-flex h-11 items-center justify-center rounded-md bg-pink-500 px-6 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-pink-600"
-                    >
-                        Back to Home
-                    </button>
                 </div>
-            </div>
+            </>
         )
     }
 
     return (
-        <div className="min-h-[calc(100dvh-60px)] bg-background text-foreground px-4 py-12">
-            <style>{`
+        <>
+            <Meta />
+
+            <div className="min-h-[calc(100dvh-60px)] bg-background text-foreground px-4 py-12">
+                <style>{`
         @keyframes contact-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
         .anim-rise { animation: contact-rise 0.55s cubic-bezier(0.22,1,0.36,1) both; }
         .anim-rise-1 { animation-delay: 60ms; }
@@ -316,194 +324,195 @@ const Contact = () => {
         .hp-wrap { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
       `}</style>
 
-            <div className="mx-auto w-full max-w-2xl">
-                <header className="anim-rise mb-10 text-center">
-                    <h1 className="text-3xl font-black tracking-tight">Leave a note</h1>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                        Questions, collabs, ticket claims, or just a hello. I read every note myself. („• ֊ •„)
-                    </p>
-                </header>
+                <div className="mx-auto w-full max-w-2xl">
+                    <header className="anim-rise mb-10 text-center">
+                        <h1 className="text-3xl font-black tracking-tight">Leave a note</h1>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                            Questions, collabs, ticket claims, or just a hello. I read every note myself. („• ֊ •„)
+                        </p>
+                    </header>
 
-                <form onSubmit={handleSubmit} className="anim-rise anim-rise-1">
-                    <div className="hp-wrap" aria-hidden="true">
-                        <label htmlFor="hp-website">Website</label>
-                        <input id="hp-website" name="website" type="text" tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} />
-                    </div>
-
-                    <div className="space-y-2">
-                        <label htmlFor="c-name" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            Your name <span className="text-pink-500" aria-hidden="true">*</span><span className="sr-only">(required)</span>
-                        </label>
-                        <div className="relative">
-                            <Icon
-                                icon={{
-                                    "width": 640,
-                                    "height": 640,
-                                    "body": "<path fill=\"currentColor\" d=\"M320 312c66.3 0 120-53.7 120-120S386.3 72 320 72s-120 53.7-120 120s53.7 120 120 120m-29.7 56C191.8 368 112 447.8 112 546.3c0 16.4 13.3 29.7 29.7 29.7h356.6c16.4 0 29.7-13.3 29.7-29.7c0-98.5-79.8-178.3-178.3-178.3z\"/>"
-                                }}
-                                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
-                            />
-                            <input
-                                id="c-name" type="text" maxLength={LIMITS.name} value={name} onChange={(e) => setName(e.target.value)}
-                                placeholder="What should I call you?"
-                                className="h-11 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm outline-none transition-colors focus:border-pink-300 focus:ring-2 focus:ring-pink-200/60"
-                            />
+                    <form onSubmit={handleSubmit} className="anim-rise anim-rise-1">
+                        <div className="hp-wrap" aria-hidden="true">
+                            <label htmlFor="hp-website">Website</label>
+                            <input id="hp-website" name="website" type="text" tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} />
                         </div>
-                    </div>
 
-                    <div className="mt-6 space-y-2">
-                        <label htmlFor="c-reason" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            What is your note about?
-                        </label>
-                        <IconSelect id="c-reason" value={reason} options={REASONS} onChange={setReason} />
-                    </div>
-
-                    {isClaim && (
-                        <div className="mt-6 space-y-2 anim-rise">
-                            <label htmlFor="c-ticket" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                Ticket code <span className="text-pink-500" aria-hidden="true">*</span><span className="sr-only">(required)</span>
+                        <div className="space-y-2">
+                            <label htmlFor="c-name" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                Your name <span className="text-pink-500" aria-hidden="true">*</span><span className="sr-only">(required)</span>
                             </label>
                             <div className="relative">
                                 <Icon
                                     icon={{
-                                        "width": 24,
-                                        "height": 24,
-                                        "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Zm11-4v2m0 10v2m0-8v2\"/>"
+                                        "width": 640,
+                                        "height": 640,
+                                        "body": "<path fill=\"currentColor\" d=\"M320 312c66.3 0 120-53.7 120-120S386.3 72 320 72s-120 53.7-120 120s53.7 120 120 120m-29.7 56C191.8 368 112 447.8 112 546.3c0 16.4 13.3 29.7 29.7 29.7h356.6c16.4 0 29.7-13.3 29.7-29.7c0-98.5-79.8-178.3-178.3-178.3z\"/>"
                                     }}
                                     className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
                                 />
                                 <input
-                                    id="c-ticket"
-                                    type="text"
-                                    maxLength={LIMITS.ticket}
-                                    value={ticket}
-                                    onChange={(e) => setTicket(formatTicketCode(e.target.value))}
-                                    placeholder="FC-A3F9QZ"
-                                    inputMode="text"
-                                    autoCapitalize="characters"
-                                    autoComplete="off"
-                                    spellCheck={false}
-                                    className="h-11 w-full rounded-md border border-border bg-background pl-9 pr-3 font-mono text-sm uppercase outline-none transition-colors focus:border-pink-300 focus:ring-2 focus:ring-pink-200/60"
-                                />
-                            </div>
-                            <p className="text-[11px] text-muted-foreground">
-                                Type the full code as printed, like FC-A3F9QZ. The hyphen appears automatically.
-                            </p>
-                        </div>
-                    )}
-
-                    <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                        <div className="space-y-2">
-                            <label htmlFor="c-method" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                How should I reply to you?
-                            </label>
-                            <IconSelect id="c-method" value={method} options={METHODS} onChange={setMethod} />
-                        </div>
-                        <div className="space-y-2">
-                            <label htmlFor="c-contact" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                {method === "email" ? "Your email" : "Your handle"} <span className="text-pink-500" aria-hidden="true">*</span><span className="sr-only">(required)</span>
-                            </label>
-                            <div className="relative">
-                                <Icon
-                                    icon={{
-                                        "body": "<path fill=\"currentColor\" fill-rule=\"evenodd\" d=\"M11.89 4.111a5.5 5.5 0 1 0 0 7.778a.75.75 0 1 1 1.06 1.061A7 7 0 1 1 15 8a2.5 2.5 0 0 1-4.083 1.935A3.5 3.5 0 1 1 11.5 8a1 1 0 0 0 2 0a5.48 5.48 0 0 0-1.61-3.889M10 8a2 2 0 1 0-4 0a2 2 0 0 0 4 0\" clip-rule=\"evenodd\"/>"
-                                    }}
-                                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
-                                />
-                                <input
-                                    id="c-contact" type={method === "email" ? "email" : "text"} maxLength={LIMITS.contact} value={contact} onChange={(e) => setContact(e.target.value)}
-                                    placeholder={placeholderFor(method)}
+                                    id="c-name" type="text" maxLength={LIMITS.name} value={name} onChange={(e) => setName(e.target.value)}
+                                    placeholder="What should I call you?"
                                     className="h-11 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm outline-none transition-colors focus:border-pink-300 focus:ring-2 focus:ring-pink-200/60"
                                 />
                             </div>
                         </div>
-                    </div>
 
-                    <div className="mt-6 space-y-2">
-                        <div className="flex items-baseline justify-between">
-                            <label htmlFor="c-message" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                Your message <span className="text-pink-500" aria-hidden="true">*</span><span className="sr-only">(required)</span>
+                        <div className="mt-6 space-y-2">
+                            <label htmlFor="c-reason" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                What is your note about?
                             </label>
-                            <span className="text-[11px] tabular-nums text-muted-foreground">{message.length}/{LIMITS.message}</span>
+                            <IconSelect id="c-reason" value={reason} options={REASONS} onChange={setReason} />
                         </div>
-                        <div className="relative">
-                            <Icon
-                                icon={{
-                                    "left": -2,
-                                    "top": -2,
-                                    "width": 24,
-                                    "height": 24,
-                                    "body": "<path fill=\"currentColor\" d=\"m5.72 14.456l1.761-.508l10.603-10.73a.456.456 0 0 0-.003-.64l-.635-.642a.443.443 0 0 0-.632-.003L6.239 12.635zM18.703.664l.635.643c.876.887.884 2.318.016 3.196L8.428 15.561l-3.764 1.084a.9.9 0 0 1-1.11-.623a.9.9 0 0 1-.002-.506l1.095-3.84L15.544.647a2.215 2.215 0 0 1 3.159.016zM7.184 1.817c.496 0 .898.407.898.909a.903.903 0 0 1-.898.909H3.592c-.992 0-1.796.814-1.796 1.817v10.906c0 1.004.804 1.818 1.796 1.818h10.776c.992 0 1.797-.814 1.797-1.818v-3.635c0-.502.402-.909.898-.909s.898.407.898.91v3.634c0 2.008-1.609 3.636-3.593 3.636H3.592C1.608 19.994 0 18.366 0 16.358V5.452c0-2.007 1.608-3.635 3.592-3.635z\"/>"
-                                }}
-                                className="pointer-events-none absolute left-3 top-3 h-4.5 w-4.5"
-                            />
-                            <textarea
-                                id="c-message" maxLength={LIMITS.message} rows={5} value={message} onChange={(e) => setMessage(e.target.value)}
-                                placeholder="Write your message here..."
-                                className="w-full resize-y rounded-md border border-border bg-background py-2.5 pl-9 pr-3 text-sm leading-relaxed outline-none transition-colors focus:border-pink-300 focus:ring-2 focus:ring-pink-200/60 min-h-52 max-h-104"
-                            />
-                        </div>
-                    </div>
 
-                    <div
-                        aria-live="polite"
-                        className={cn(
-                            "grid transition-all duration-300 ease-out",
-                            status === "error" ? "mt-6 grid-rows-[1fr] opacity-100" : "mt-0 grid-rows-[0fr] opacity-0"
-                        )}
-                    >
-                        <div className="overflow-hidden">
-                            <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-600">
-                                <Icon
-                                    icon={{
-                                        "width": 24,
-                                        "height": 24,
-                                        "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path stroke-linecap=\"round\" d=\"M12 7v6m0 3.5v.5\"/></g>"
-                                    }}
-                                    className="mt-0.5 h-4 w-4 shrink-0"
-                                />
-                                <p>{errorMsg}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <button
-                            type="button"
-                            onClick={handleReset}
-                            disabled={isPristine || status === "loading"}
-                            className="inline-flex h-11 w-full items-center justify-center rounded-md border border-border px-5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            Clear
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={status === "loading"}
-                            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-pink-500 text-sm font-semibold text-white shadow-sm transition-all hover:bg-pink-600 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-stone-300"
-                        >
-                            {status === "loading" ? (
-                                <>
-                                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                                    Sending…
-                                </>
-                            ) : (
-                                <>
+                        {isClaim && (
+                            <div className="mt-6 space-y-2 anim-rise">
+                                <label htmlFor="c-ticket" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                    Ticket code <span className="text-pink-500" aria-hidden="true">*</span><span className="sr-only">(required)</span>
+                                </label>
+                                <div className="relative">
                                     <Icon
                                         icon={{
                                             "width": 24,
                                             "height": 24,
-                                            "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11zm7.318-19.539l-10.94 10.939\"/>"
+                                            "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Zm11-4v2m0 10v2m0-8v2\"/>"
                                         }}
-                                        className="h-4 w-4"
+                                        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
                                     />
-                                    Send my note
-                                </>
+                                    <input
+                                        id="c-ticket"
+                                        type="text"
+                                        maxLength={LIMITS.ticket}
+                                        value={ticket}
+                                        onChange={(e) => setTicket(formatTicketCode(e.target.value))}
+                                        placeholder="FC-A3F9QZ"
+                                        inputMode="text"
+                                        autoCapitalize="characters"
+                                        autoComplete="off"
+                                        spellCheck={false}
+                                        className="h-11 w-full rounded-md border border-border bg-background pl-9 pr-3 font-mono text-sm uppercase outline-none transition-colors focus:border-pink-300 focus:ring-2 focus:ring-pink-200/60"
+                                    />
+                                </div>
+                                <p className="text-[11px] text-muted-foreground">
+                                    Type the full code as printed, like FC-A3F9QZ. The hyphen appears automatically.
+                                </p>
+                            </div>
+                        )}
+
+                        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-2">
+                                <label htmlFor="c-method" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                    How should I reply to you?
+                                </label>
+                                <IconSelect id="c-method" value={method} options={METHODS} onChange={setMethod} />
+                            </div>
+                            <div className="space-y-2">
+                                <label htmlFor="c-contact" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                    {method === "email" ? "Your email" : "Your handle"} <span className="text-pink-500" aria-hidden="true">*</span><span className="sr-only">(required)</span>
+                                </label>
+                                <div className="relative">
+                                    <Icon
+                                        icon={{
+                                            "body": "<path fill=\"currentColor\" fill-rule=\"evenodd\" d=\"M11.89 4.111a5.5 5.5 0 1 0 0 7.778a.75.75 0 1 1 1.06 1.061A7 7 0 1 1 15 8a2.5 2.5 0 0 1-4.083 1.935A3.5 3.5 0 1 1 11.5 8a1 1 0 0 0 2 0a5.48 5.48 0 0 0-1.61-3.889M10 8a2 2 0 1 0-4 0a2 2 0 0 0 4 0\" clip-rule=\"evenodd\"/>"
+                                        }}
+                                        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
+                                    />
+                                    <input
+                                        id="c-contact" type={method === "email" ? "email" : "text"} maxLength={LIMITS.contact} value={contact} onChange={(e) => setContact(e.target.value)}
+                                        placeholder={placeholderFor(method)}
+                                        className="h-11 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm outline-none transition-colors focus:border-pink-300 focus:ring-2 focus:ring-pink-200/60"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-6 space-y-2">
+                            <div className="flex items-baseline justify-between">
+                                <label htmlFor="c-message" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                    Your message <span className="text-pink-500" aria-hidden="true">*</span><span className="sr-only">(required)</span>
+                                </label>
+                                <span className="text-[11px] tabular-nums text-muted-foreground">{message.length}/{LIMITS.message}</span>
+                            </div>
+                            <div className="relative">
+                                <Icon
+                                    icon={{
+                                        "left": -2,
+                                        "top": -2,
+                                        "width": 24,
+                                        "height": 24,
+                                        "body": "<path fill=\"currentColor\" d=\"m5.72 14.456l1.761-.508l10.603-10.73a.456.456 0 0 0-.003-.64l-.635-.642a.443.443 0 0 0-.632-.003L6.239 12.635zM18.703.664l.635.643c.876.887.884 2.318.016 3.196L8.428 15.561l-3.764 1.084a.9.9 0 0 1-1.11-.623a.9.9 0 0 1-.002-.506l1.095-3.84L15.544.647a2.215 2.215 0 0 1 3.159.016zM7.184 1.817c.496 0 .898.407.898.909a.903.903 0 0 1-.898.909H3.592c-.992 0-1.796.814-1.796 1.817v10.906c0 1.004.804 1.818 1.796 1.818h10.776c.992 0 1.797-.814 1.797-1.818v-3.635c0-.502.402-.909.898-.909s.898.407.898.91v3.634c0 2.008-1.609 3.636-3.593 3.636H3.592C1.608 19.994 0 18.366 0 16.358V5.452c0-2.007 1.608-3.635 3.592-3.635z\"/>"
+                                    }}
+                                    className="pointer-events-none absolute left-3 top-3 h-4.5 w-4.5"
+                                />
+                                <textarea
+                                    id="c-message" maxLength={LIMITS.message} rows={5} value={message} onChange={(e) => setMessage(e.target.value)}
+                                    placeholder="Write your message here..."
+                                    className="w-full resize-y rounded-md border border-border bg-background py-2.5 pl-9 pr-3 text-sm leading-relaxed outline-none transition-colors focus:border-pink-300 focus:ring-2 focus:ring-pink-200/60 min-h-52 max-h-104"
+                                />
+                            </div>
+                        </div>
+
+                        <div
+                            aria-live="polite"
+                            className={cn(
+                                "grid transition-all duration-300 ease-out",
+                                status === "error" ? "mt-6 grid-rows-[1fr] opacity-100" : "mt-0 grid-rows-[0fr] opacity-0"
                             )}
-                        </button>
-                    </div>
-                </form>
+                        >
+                            <div className="overflow-hidden">
+                                <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-600">
+                                    <Icon
+                                        icon={{
+                                            "width": 24,
+                                            "height": 24,
+                                            "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path stroke-linecap=\"round\" d=\"M12 7v6m0 3.5v.5\"/></g>"
+                                        }}
+                                        className="mt-0.5 h-4 w-4 shrink-0"
+                                    />
+                                    <p>{errorMsg}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <button
+                                type="button"
+                                onClick={handleReset}
+                                disabled={isPristine || status === "loading"}
+                                className="inline-flex h-11 w-full items-center justify-center rounded-md border border-border px-5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                Clear
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={status === "loading"}
+                                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-pink-500 text-sm font-semibold text-white shadow-sm transition-all hover:bg-pink-600 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-stone-300"
+                            >
+                                {status === "loading" ? (
+                                    <>
+                                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                                        Sending…
+                                    </>
+                                ) : (
+                                    <>
+                                        <Icon
+                                            icon={{
+                                                "width": 24,
+                                                "height": 24,
+                                                "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11zm7.318-19.539l-10.94 10.939\"/>"
+                                            }}
+                                            className="h-4 w-4"
+                                        />
+                                        Send my note
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
-        </div>
+        </>
     )
 }
 
