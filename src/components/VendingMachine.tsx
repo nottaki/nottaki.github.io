@@ -2163,7 +2163,7 @@ const VendingMachine = () => {
                           <a
                             href={m.url}
                             target="_blank"
-                            rel="noopener noreferrer"
+                            rel="noopener"
                             onClick={() => markVisited(m.id)}
                             className="flex-1 text-center text-xs bg-stone-100 hover:bg-stone-200 text-stone-600 py-2 rounded-lg font-medium transition-colors"
                           >
