@@ -1,11 +1,11 @@
-import { siteConfig } from "@/siteconfig"
 import { claimMission, fetchMachineState, submitSpinToBackend, type Mission } from "@/lib/gachaApi"
 import { SOUNDS, playSound } from "@/lib/sounds"
 import { cn } from "@/lib/utils"
+import { siteConfig } from "@/siteconfig"
 import { useGSAP } from "@gsap/react"
 import gsap from "gsap"
 import type React from "react"
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 // ==========================================
 // CONSTANTS & CONFIGURATION
@@ -14,10 +14,20 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 const SPIN_COST = 10
 const MAX_VISIBLE_COINS = 6
 const CAPSULE_SIZE = 80
+const CAPSULE_RADIUS = CAPSULE_SIZE / 2
 const BUCKET_SCALE = 0.8
-const CAPSULES_PER_FRONT_ROW = 4
+const MAX_VISIBLE_CAPSULES = 28
 const HOLD_MS = 1800
 const TICKET_MARGIN = 12
+
+// Simple pseudo-physics tuning for the capsule pile inside the machine window.
+// This is not a real physics engine, just enough to make the pile feel less grid-like.
+const PILE_MAX_BOTTOM = 150
+const PILE_MIN_X = 12
+const PILE_MAX_X = 88
+const PILE_PX_PER_PERCENT = 3.1
+const PILE_FALL_STEP = 3
+const PILE_OVERLAP_ALLOW = 7
 
 const CAPSULE_COLORS = [
   "from-pink-200 via-pink-400 to-pink-600",
@@ -57,6 +67,7 @@ export type PrizeId =
 
 interface PileSpot {
   id: string
+  x: number
   left: string
   bottom: number
   z: number
@@ -64,6 +75,7 @@ interface PileSpot {
   rotate: number
   blur: number
   bright: number
+  colorIndex: number
 }
 
 // ==========================================
@@ -81,16 +93,14 @@ const seededRandom = (seed: number) => {
   return x - Math.floor(x)
 }
 
-const seededShuffle = (size: number, seed: number): number[] => {
-  const arr = Array.from({ length: size }, (_, i) => i)
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(seededRandom(seed + i * 31) * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]]
-  }
-  return arr
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message
+  if (typeof error === "string") return error
+  return ""
 }
 
 const floorTop = () => window.innerHeight - 100
+
 const jstDateStr = () =>
   new Date(Date.now() + (new Date().getTimezoneOffset() + 540) * 60000)
     .toISOString()
@@ -115,52 +125,99 @@ const roundRect = (
 
 const tiltFor = (i: number) => (seededRandom(i * 97 + 13) - 0.5) * 36
 
-const buildPileLayout = (count: number): PileSpot[] => {
-  const layout: PileSpot[] = []
-  if (count <= 0) return layout
-
-  const pairCapacity = CAPSULES_PER_FRONT_ROW * 2 - 1
-  const pairsNeeded = Math.ceil(count / pairCapacity)
-  const pairStep =
-    pairsNeeded <= 3 ? 62 : Math.max(40, Math.floor(170 / pairsNeeded))
-  const backLift = Math.round(pairStep * 0.55)
-
-  let placed = 0
-  let rowIndex = 0
-
-  while (placed < count) {
-    const isBack = rowIndex % 2 === 1
-    const perRow = isBack ? CAPSULES_PER_FRONT_ROW - 1 : CAPSULES_PER_FRONT_ROW
-    const pair = Math.floor(rowIndex / 2)
-    const rowBottom = pair * pairStep + (isBack ? backLift : 0)
-    const fillCount = Math.min(perRow, count - placed)
-    const slotOrder = seededShuffle(perRow, rowIndex * 97 + 5)
-
-    for (let k = 0; k < fillCount; k++) {
-      const slot = slotOrder[k]
-      const baseLeft = isBack
-        ? ((slot + 1) / (perRow + 1)) * 100
-        : ((slot + 0.5) / perRow) * 100
-      const jitterX = (seededRandom(placed * 173 + 7) - 0.5) * 14
-      const jitterY = (seededRandom(placed * 211 + 3) - 0.5) * 8
-      const depth = seededRandom(placed * 419 + 17)
-      const scale = isBack ? 0.78 + depth * 0.06 : 0.92 + depth * 0.1
-
-      layout.push({
-        id: `capsule-${placed}`,
-        left: `calc(${baseLeft.toFixed(2)}% - ${(40 - jitterX).toFixed(1)}px)`,
-        bottom: rowBottom + jitterY,
-        z: isBack ? 1 + Math.round(depth * 2) : 5 + Math.round(depth * 4),
-        scale,
-        rotate: seededRandom(placed * 111 + 1) * 360,
-        blur: isBack ? 1.2 - depth * 0.6 : 0,
-        bright: isBack ? 0.88 + depth * 0.06 : 1,
-      })
-      placed++
-    }
-    rowIndex++
+// Places one capsule onto the existing pile, roughly like dropping it into the machine.
+// Existing capsules keep their positions, which prevents the whole pile from teleporting.
+const createCapsuleSpot = (
+  existing: PileSpot[],
+  seed: number,
+  index: number,
+  id: string,
+): PileSpot => {
+  const rand = (n: number) => {
+    const x = Math.sin((seed + index * 977 + n) * 12.9898) * 43758.5453
+    return x - Math.floor(x)
   }
-  return layout
+
+  const scale = 0.84 + rand(1) * 0.18
+  const radius = CAPSULE_RADIUS * scale
+
+  let x = PILE_MIN_X + rand(2) * (PILE_MAX_X - PILE_MIN_X)
+  let bottom = PILE_MAX_BOTTOM + 24
+
+  const collidesAt = (testX: number, testBottom: number) => {
+    const centerY = testBottom + radius
+
+    for (const spot of existing) {
+      const spotRadius = CAPSULE_RADIUS * spot.scale
+      const dx = (testX - spot.x) * PILE_PX_PER_PERCENT
+      const dy = centerY - (spot.bottom + spotRadius)
+      const dist = Math.hypot(dx, dy)
+
+      if (dist < radius + spotRadius - PILE_OVERLAP_ALLOW) {
+        return true
+      }
+    }
+
+    return false
+  }
+
+  let guard = 0
+
+  while (bottom > 0 && guard < 140) {
+    const nextBottom = Math.max(0, bottom - PILE_FALL_STEP)
+
+    if (!collidesAt(x, nextBottom)) {
+      bottom = nextBottom
+      guard++
+      continue
+    }
+
+    const slideOffsets = [-12, -8, -5, 5, 8, 12]
+    let slid = false
+
+    for (const offset of slideOffsets) {
+      const nextX = Math.min(PILE_MAX_X, Math.max(PILE_MIN_X, x + offset))
+
+      if (!collidesAt(nextX, nextBottom)) {
+        x = nextX
+        bottom = nextBottom
+        slid = true
+        break
+      }
+    }
+
+    if (!slid) {
+      bottom = nextBottom + PILE_FALL_STEP
+      break
+    }
+
+    guard++
+  }
+
+  bottom = Math.max(0, Math.min(PILE_MAX_BOTTOM, bottom + (rand(6) - 0.5) * 5))
+  x = Math.min(PILE_MAX_X, Math.max(PILE_MIN_X, x + (rand(7) - 0.5) * 1.2))
+
+  const bottomRatio = bottom / PILE_MAX_BOTTOM
+  const depth = rand(3)
+
+  const z = Math.max(1, Math.round(18 - bottomRatio * 10 + depth * 2))
+  const blur = bottomRatio > 0.74 ? 0.5 + (bottomRatio - 0.74) * 1.1 : 0
+  const bright = bottomRatio > 0.74 ? 0.92 : 1
+  const rotate = rand(4) * 360
+  const colorIndex = Math.floor(rand(5) * CAPSULE_COLORS.length) % CAPSULE_COLORS.length
+
+  return {
+    id,
+    x,
+    left: `calc(${x.toFixed(2)}% - ${CAPSULE_RADIUS}px)`,
+    bottom,
+    z,
+    scale,
+    rotate,
+    blur,
+    bright,
+    colorIndex,
+  }
 }
 
 const drawTicketCanvas = (
@@ -456,29 +513,77 @@ const CertIcon = ({ className }: { className?: string }) => (
 // SUB-COMPONENTS
 // ==========================================
 
-const MascotCapsule = ({ className }: { className?: string }) => (
+const MascotCapsule = ({
+  className,
+  mood = "happy",
+}: {
+  className?: string
+  mood?: "happy" | "curious"
+}) => (
   <div
     className={cn("relative h-16 w-16", className)}
-    style={{ animation: "mascot-bob 2.6s ease-in-out infinite" }}
+    style={{
+      animation:
+        mood === "curious"
+          ? "mascot-sway 3.2s ease-in-out infinite"
+          : "mascot-bob 2.6s ease-in-out infinite",
+    }}
   >
     <div className="absolute inset-0 overflow-hidden rounded-full border-4 border-white shadow-md">
       <div className="h-1/2 w-full bg-linear-to-br from-rose-300 to-pink-400" />
       <div className="h-1/2 w-full bg-white" />
     </div>
     <span className="absolute left-3 top-2 h-2.5 w-3.5 -rotate-12 rounded-full bg-white/70 blur-[2px]" />
-    <div className="absolute left-1/2 top-[54%] flex -translate-x-1/2 gap-2">
-      <span
-        className="h-2 w-1 rounded-full bg-stone-700"
-        style={{ animation: "mascot-blink 4.2s ease-in-out infinite" }}
-      />
-      <span
-        className="h-2 w-1 rounded-full bg-stone-700"
-        style={{ animation: "mascot-blink 4.2s ease-in-out infinite" }}
-      />
-    </div>
-    <span className="absolute left-2 top-[62%] h-1 w-2 rounded-full bg-rose-300/90" />
-    <span className="absolute right-2 top-[62%] h-1 w-2 rounded-full bg-rose-300/90" />
+
+    {mood === "curious" ? (
+      <>
+        <div className="absolute left-1/2 top-[54%] flex -translate-x-1/2 gap-2">
+          <span
+            className="block h-2 w-1"
+            style={{ animation: "mascot-blink 4.2s ease-in-out infinite" }}
+          >
+            <span
+              className="block h-full w-full rounded-full bg-stone-700"
+              style={{ animation: "mascot-look 3.4s ease-in-out infinite" }}
+            />
+          </span>
+          <span
+            className="block h-2 w-1"
+            style={{ animation: "mascot-blink 4.2s ease-in-out infinite" }}
+          >
+            <span
+              className="block h-full w-full rounded-full bg-stone-700"
+              style={{ animation: "mascot-look 3.4s ease-in-out infinite" }}
+            />
+          </span>
+        </div>
+        <span className="absolute left-2 top-[62%] h-1 w-2 rounded-full bg-rose-300/90" />
+        <span className="absolute right-2 top-[62%] h-1 w-2 rounded-full bg-rose-300/90" />
+      </>
+    ) : (
+      <>
+        <div className="absolute left-1/2 top-[54%] flex -translate-x-1/2 gap-2">
+          <span
+            className="h-2 w-1 rounded-full bg-stone-700"
+            style={{ animation: "mascot-blink 4.2s ease-in-out infinite" }}
+          />
+          <span
+            className="h-2 w-1 rounded-full bg-stone-700"
+            style={{ animation: "mascot-blink 4.2s ease-in-out infinite" }}
+          />
+        </div>
+        <span className="absolute left-2 top-[62%] h-1 w-2 rounded-full bg-rose-300/90" />
+        <span className="absolute right-2 top-[62%] h-1 w-2 rounded-full bg-rose-300/90" />
+      </>
+    )}
   </div>
+)
+
+const ClaimSpinner = ({ label }: { label: string }) => (
+  <span className="inline-flex items-center justify-center gap-1.5">
+    <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+    {label}
+  </span>
 )
 
 const COFFEE_BEAN_SPOTS = Array.from({ length: 10 }).map((_, i) => ({
@@ -573,6 +678,7 @@ export const PrizeCardFace = ({
   back?: boolean
 }) => {
   const meta = PRIZE_META[prize]
+
   return (
     <div
       className={cn(
@@ -597,6 +703,7 @@ export const PrizeCardFace = ({
           ))}
         </div>
       )}
+
       {back ? (
         <>
           <div className="relative z-10 text-base font-black text-gray-600 tracking-wide text-center px-4">
@@ -635,6 +742,7 @@ const PrizeModal = ({
   const rotationRef = useRef(0)
   const isDraggingRef = useRef(false)
   const lastXRef = useRef(0)
+  const copyTimeoutRef = useRef<number | null>(null)
 
   const isTicket = data.prize === "ticket"
   const [copied, setCopied] = useState(false)
@@ -644,51 +752,65 @@ const PrizeModal = ({
 
   const shareOnX = () => {
     if (isTicket) return
-    const meta = PRIZE_META[data.prize as Exclude<PrizeId, 'ticket'>]
+    const meta = PRIZE_META[data.prize as Exclude<PrizeId, "ticket">]
     const text = `${meta.shareText} ${SHARE_HASHTAG}`
     const url = `https://x.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrlFor(data.prize as string))}`
-    window.open(url, '_blank', 'noopener,noreferrer')
+    window.open(url, "_blank", "noopener,noreferrer")
   }
 
   const copyShare = async () => {
     if (isTicket) return
-    const meta = PRIZE_META[data.prize as Exclude<PrizeId, 'ticket'>]
+    const meta = PRIZE_META[data.prize as Exclude<PrizeId, "ticket">]
     const payload = `${meta.shareText}\n\n${SHARE_HASHTAG}\n${shareUrlFor(data.prize as string)}`
+
     try {
       await navigator.clipboard.writeText(payload)
+      if (copyTimeoutRef.current) window.clearTimeout(copyTimeoutRef.current)
       setCopied(true)
-      window.setTimeout(() => setCopied(false), 1600)
+      copyTimeoutRef.current = window.setTimeout(() => {
+        setCopied(false)
+        copyTimeoutRef.current = null
+      }, 1600)
     } catch {
-      window.prompt('Clipboard is shy today, copy it manually:', payload)
+      window.prompt("Clipboard is shy today, copy it manually:", payload)
     }
   }
 
+  useGSAP(
+    () => {
+      const root = rootRef.current
+      const dim = dimRef.current
+      if (!root || !dim) return
+
+      const items = Array.from(root.children).filter(
+        (c) => c !== dim,
+      ) as HTMLElement[]
+
+      gsap.fromTo(
+        dim,
+        { opacity: 0 },
+        { opacity: 1, duration: 0.4, ease: "power2.out" },
+      )
+      gsap.fromTo(
+        items,
+        { opacity: 0, filter: "blur(12px)", y: 10 },
+        {
+          opacity: 1,
+          filter: "blur(0px)",
+          y: 0,
+          duration: 0.5,
+          stagger: 0.08,
+          ease: "power2.out",
+        },
+      )
+    },
+    { scope: rootRef },
+  )
+
   useEffect(() => {
-    const root = rootRef.current
-    const dim = dimRef.current
-    if (!root || !dim) return
-
-    const items = Array.from(root.children).filter(
-      (c) => c !== dim,
-    ) as HTMLElement[]
-
-    gsap.fromTo(
-      dim,
-      { opacity: 0 },
-      { opacity: 1, duration: 0.4, ease: "power2.out" },
-    )
-    gsap.fromTo(
-      items,
-      { opacity: 0, filter: "blur(12px)", y: 10 },
-      {
-        opacity: 1,
-        filter: "blur(0px)",
-        y: 0,
-        duration: 0.5,
-        stagger: 0.08,
-        ease: "power2.out",
-      },
-    )
+    return () => {
+      if (copyTimeoutRef.current) window.clearTimeout(copyTimeoutRef.current)
+    }
   }, [])
 
   useEffect(() => {
@@ -705,14 +827,17 @@ const PrizeModal = ({
 
   useEffect(() => {
     let animationFrameId: number
+
     const animate = () => {
       if (!isDraggingRef.current) {
         rotationRef.current = (rotationRef.current + 0.3) % 360
-        if (ticketContainerRef.current)
+        if (ticketContainerRef.current) {
           ticketContainerRef.current.style.transform = `rotateY(${rotationRef.current}deg)`
+        }
       }
       animationFrameId = requestAnimationFrame(animate)
     }
+
     animationFrameId = requestAnimationFrame(animate)
     return () => cancelAnimationFrame(animationFrameId)
   }, [])
@@ -722,15 +847,19 @@ const PrizeModal = ({
       if (!isDraggingRef.current) return
       rotationRef.current += (e.clientX - lastXRef.current) * 0.8
       lastXRef.current = e.clientX
-      if (ticketContainerRef.current)
+      if (ticketContainerRef.current) {
         ticketContainerRef.current.style.transform = `rotateY(${rotationRef.current}deg)`
+      }
     }
+
     const handleUp = () => {
       isDraggingRef.current = false
     }
+
     window.addEventListener("pointermove", handleMove)
     window.addEventListener("pointerup", handleUp)
     window.addEventListener("pointerleave", handleUp)
+
     return () => {
       window.removeEventListener("pointermove", handleMove)
       window.removeEventListener("pointerup", handleUp)
@@ -740,8 +869,8 @@ const PrizeModal = ({
 
   const handlePointerDown = (e: React.PointerEvent) => {
     isDraggingRef.current = true
-    lastXRef.current = e.clientX;
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    lastXRef.current = e.clientX
+      ; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
     e.preventDefault()
   }
 
@@ -750,24 +879,32 @@ const PrizeModal = ({
   const saveAsImage = () => {
     const combinedCanvas = document.createElement("canvas")
     const dpr = window.devicePixelRatio || 1
-    const width = 320,
-      height = 440
+    const width = 320
+    const height = 440
+
     combinedCanvas.width = width * dpr
     combinedCanvas.height = height * dpr
+
     const ctx = combinedCanvas.getContext("2d")
     if (!ctx) return
+
     ctx.scale(dpr, dpr)
     ctx.fillStyle = "#fdf2f8"
     roundRect(ctx, 0, 0, width, height, 20)
     ctx.fill()
-    if (frontCanvasRef.current)
+
+    if (frontCanvasRef.current) {
       ctx.drawImage(frontCanvasRef.current, 20, 20, 280, 180)
-    if (backCanvasRef.current)
+    }
+    if (backCanvasRef.current) {
       ctx.drawImage(backCanvasRef.current, 20, 220, 280, 180)
+    }
+
     ctx.fillStyle = "#d63384"
     ctx.font = '14px "Hiragino Maru Gothic Pro", "Meiryo", sans-serif'
     ctx.textAlign = "center"
     ctx.fillText("Thank you for using the Gacha!", width / 2, height - 15)
+
     const link = document.createElement("a")
     link.download = `free-commission-ticket-${data.code}.png`
     link.href = combinedCanvas.toDataURL("image/png")
@@ -783,6 +920,7 @@ const PrizeModal = ({
         ref={dimRef}
         className="absolute inset-0 bg-black/30 backdrop-blur-[2px]"
       />
+
       {isTicket ? (
         <div className="relative mb-6 px-4 py-1.5 rounded-md bg-white/15 border border-pink-300/40 text-sm text-pink-100 backdrop-blur-sm text-center">
           Please use before{" "}
@@ -794,6 +932,7 @@ const PrizeModal = ({
           {PRIZE_META[data.prize as Exclude<PrizeId, "ticket">].chipText}
         </div>
       )}
+
       <div
         className="relative w-96 h-64 cursor-grab active:cursor-grabbing touch-none select-none"
         style={{ perspective: "1000px" }}
@@ -857,6 +996,7 @@ const PrizeModal = ({
           )}
         </div>
       </div>
+
       <div className="absolute bottom-8 inset-x-0 flex flex-wrap items-center justify-center gap-3 px-4">
         {isTicket ? (
           <button
@@ -877,10 +1017,11 @@ const PrizeModal = ({
               onClick={copyShare}
               className="px-6 py-2.5 bg-neutral-400 hover:bg-neutral-400/80 text-white rounded-lg font-semibold border border-white/25 backdrop-blur-sm transition-colors w-40"
             >
-              {copied ? 'Copied!' : 'Copy & share'}
+              {copied ? "Copied!" : "Copy & share"}
             </button>
           </>
         )}
+
         <button
           onClick={onClose}
           className="px-6 py-2.5 bg-white/15 hover:bg-white/25 text-white rounded-lg font-semibold border border-white/25 backdrop-blur-sm transition-colors"
@@ -899,7 +1040,11 @@ const PrizeModal = ({
 const VendingMachine = () => {
   // --- State & Refs ---
   const [length, setLength] = useState<number | null>(null)
+  const [pileSeed] = useState(() => Math.floor(safeRandom() * 1_000_000))
+  const [capsules, setCapsules] = useState<PileSpot[]>([])
+  const nextCapsuleIdRef = useRef(1)
   const [missions, setMissions] = useState<Mission[]>([])
+
   const [coins, setCoins] = useState(() =>
     Math.max(
       Number.parseInt(localStorage.getItem("gachaBoxCoins") || "0", 10),
@@ -921,7 +1066,7 @@ const VendingMachine = () => {
   )
 
   const [isSpinning, setIsSpinning] = useState(false)
-  const [capsuleInBucketIndex, setCapsuleInBucketIndex] = useState<number | null>(null)
+  const [bucketCapsuleId, setBucketCapsuleId] = useState<string | null>(null)
   const [isOpening, setIsOpening] = useState(false)
   const [isPresenting, setIsPresenting] = useState(false)
   const [prizeData, setPrizeData] = useState<{
@@ -947,9 +1092,9 @@ const VendingMachine = () => {
     active: false,
   })
   const [floorCoins, setFloorCoins] = useState<{ id: number; rotation: number; left: number }[]>([])
-
   const [isDragging, setIsDragging] = useState(false)
   const [isCoinSettling, setIsCoinSettling] = useState(false)
+
   const [visitedIds, setVisitedIds] = useState<Record<number, string>>(() => {
     try {
       return JSON.parse(localStorage.getItem("gachaVisitedMissions") || "{}")
@@ -957,6 +1102,14 @@ const VendingMachine = () => {
       return {}
     }
   })
+
+  const [activeTab, setActiveTab] = useState<"available" | "completed">("available")
+  const [isTabFading, setIsTabFading] = useState(false)
+  const [missionAnimTick, setMissionAnimTick] = useState(0)
+  const [claimingIds, setClaimingIds] = useState<Set<number>>(() => new Set())
+  const [exitingIds, setExitingIds] = useState<Set<number>>(() => new Set())
+  const [completedPulse, setCompletedPulse] = useState(false)
+  const [settleTick, setSettleTick] = useState(0)
   const [pullDistance, setPullDistance] = useState(0)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [hold, setHold] = useState<{ id: number; p: number } | null>(null)
@@ -966,6 +1119,9 @@ const VendingMachine = () => {
 
   const introPlayedRef = useRef(false)
   const introTlRef = useRef<gsap.core.Timeline | null>(null)
+  const tabTimeoutRef = useRef<number | null>(null)
+  const timeoutRefs = useRef<Set<number>>(new Set())
+  const initialMissionsLoadedRef = useRef(false)
   const rippleIdRef = useRef(0)
   const floorCoinIdRef = useRef(0)
   const isDraggingRef = useRef(false)
@@ -991,6 +1147,7 @@ const VendingMachine = () => {
   const shakeTimelineRef = useRef<gsap.core.Timeline | null>(null)
   const drainProxyRef = useRef({ v: 0 })
   const coinsRef = useRef(0)
+  const floorCoinsRef = useRef(0)
   const pendingLengthRef = useRef<number | null>(null)
   const insertedCoinsRef = useRef(0)
   const lengthRef = useRef<number | null>(null)
@@ -999,6 +1156,16 @@ const VendingMachine = () => {
 
   // --- Core Logic & Helpers ---
 
+  const scheduleTimeout = (callback: () => void, ms: number) => {
+    const idRef = { current: 0 }
+    idRef.current = window.setTimeout(() => {
+      timeoutRefs.current.delete(idRef.current)
+      callback()
+    }, ms)
+    timeoutRefs.current.add(idRef.current)
+    return idRef.current
+  }
+
   const reconcileCoins = (totalCoins: number) => {
     let inserted = Number.parseInt(
       localStorage.getItem("gachaInsertedCoins") || "0",
@@ -1006,11 +1173,13 @@ const VendingMachine = () => {
     )
     if (Number.isNaN(inserted) || inserted < 0) inserted = 0
     inserted = Math.min(inserted, SPIN_COST)
-    const floorCount = floorCoins.length
+
+    const floorCount = floorCoinsRef.current
     if (inserted + floorCount > totalCoins) {
       inserted = Math.max(0, totalCoins - floorCount)
       localStorage.setItem("gachaInsertedCoins", inserted.toString())
     }
+
     const box = Math.max(0, totalCoins - inserted - floorCount)
     setInsertedCoins(inserted)
     setDisplayInserted(inserted)
@@ -1031,10 +1200,12 @@ const VendingMachine = () => {
     })
   }
 
+  // Called from context-safe pointer handlers, so GSAP objects are tracked.
   const dropCoinToFloor = (coinEl: HTMLElement) => {
     setIsCoinSettling(true)
     const rect = coinEl.getBoundingClientRect()
     const dropLeft = rect.left
+
     gsap.to(coinEl, {
       top: floorTop(),
       rotateY: 0,
@@ -1053,6 +1224,10 @@ const VendingMachine = () => {
           },
         ])
         setIsCoinSettling(false)
+
+        if (coinsRef.current === 0 && coinRef.current) {
+          gsap.set(coinRef.current, { opacity: 0, pointerEvents: "none" })
+        }
       },
     })
   }
@@ -1065,6 +1240,10 @@ const VendingMachine = () => {
         setLength(data.capsules)
         reconcileCoins(data.coins)
         setMissions(data.missions || [])
+        if (!initialMissionsLoadedRef.current) {
+          initialMissionsLoadedRef.current = true
+          setMissionAnimTick((t) => t + 1)
+        }
       })
       .catch((err) => {
         console.error("Failed to load machine state:", err)
@@ -1098,8 +1277,45 @@ const VendingMachine = () => {
     lengthRef.current = length
   }, [length])
 
+  useEffect(() => {
+    floorCoinsRef.current = floorCoins.length
+  }, [floorCoins.length])
+
+  // Keeps the visible pile count synced with the real capsule count.
+  // Existing capsules keep their positions; only missing capsules are dropped in.
+  useEffect(() => {
+    if (length === null) return
+
+    const target = Math.min(length, MAX_VISIBLE_CAPSULES)
+
+    setCapsules((prev) => {
+      const next = [...prev]
+
+      while (next.length > target) {
+        let removeIndex = 0
+        for (let i = 1; i < next.length; i++) {
+          if (next[i].bottom > next[removeIndex].bottom) {
+            removeIndex = i
+          }
+        }
+        next.splice(removeIndex, 1)
+      }
+
+      while (next.length < target) {
+        const id = nextCapsuleIdRef.current++
+        next.push(createCapsuleSpot(next, pileSeed, id, `capsule-${id}`))
+      }
+
+      return next
+    })
+  }, [length, pileSeed])
+
   useEffect(
     () => () => {
+      timeoutRefs.current.forEach((id) => window.clearTimeout(id))
+      timeoutRefs.current.clear()
+
+      if (tabTimeoutRef.current) window.clearTimeout(tabTimeoutRef.current)
       presentationTlRef.current?.kill()
       presentationCloneRef.current?.remove()
       introTlRef.current?.kill()
@@ -1108,82 +1324,90 @@ const VendingMachine = () => {
     [],
   )
 
-  useLayoutEffect(() => {
-    if (!containerRef.current || length === null || introPlayedRef.current)
-      return
-    gsap.set(
-      [".machine-container", ".phone-container", ".coin-box-container"],
-      { opacity: 0 },
-    )
-  }, [length])
+  useGSAP(
+    () => {
+      if (!containerRef.current || length === null || introPlayedRef.current)
+        return
 
-  useEffect(() => {
-    const root = containerRef.current
-    if (!root || length === null || introPlayedRef.current) return
-    introPlayedRef.current = true
-    const machineEl = root.querySelector(".machine-container")
-    const phoneEl = root.querySelector(".phone-container")
-    const boxEl = root.querySelector(".coin-box-container")
-    const tl = gsap.timeline()
-    introTlRef.current = tl
-    if (machineEl) {
-      tl.fromTo(
-        machineEl,
-        {
-          opacity: 0,
-          scale: 0.94,
-          filter: "blur(10px)",
-        },
-        {
-          opacity: 1,
-          scale: 1,
-          filter: "blur(0px)",
-          duration: 0.9,
-          ease: "power2.out",
-          clearProps: "all",
-        },
-        0,
+      introPlayedRef.current = true
+
+      gsap.set(
+        [".machine-container", ".phone-container", ".coin-box-container"],
+        { opacity: 0 },
       )
-    }
-    if (phoneEl) {
-      tl.fromTo(
-        phoneEl,
-        {
-          opacity: 0,
-          x: 60,
-          rotateY: -12,
-        },
-        {
-          opacity: 1,
-          x: 0,
-          rotateY: 0,
-          duration: 0.9,
-          ease: "power3.out",
-          clearProps: "all",
-        },
-        0,
-      )
-    }
-    if (boxEl) {
-      tl.fromTo(
-        boxEl,
-        {
-          opacity: 0,
-          scale: 0.92,
-          filter: "blur(6px)",
-        },
-        {
-          opacity: 1,
-          scale: 1,
-          filter: "blur(0px)",
-          duration: 0.8,
-          ease: "power2.out",
-          clearProps: "all",
-        },
-        0,
-      )
-    }
-  }, [length])
+
+      const machineEl = containerRef.current.querySelector(".machine-container")
+      const phoneEl = containerRef.current.querySelector(".phone-container")
+      const boxEl = containerRef.current.querySelector(".coin-box-container")
+
+      const tl = gsap.timeline()
+      introTlRef.current = tl
+
+      if (machineEl) {
+        tl.fromTo(
+          machineEl,
+          {
+            opacity: 0,
+            scale: 0.94,
+            filter: "blur(10px)",
+          },
+          {
+            opacity: 1,
+            scale: 1,
+            filter: "blur(0px)",
+            duration: 0.9,
+            ease: "power2.out",
+            clearProps: "all",
+          },
+          0,
+        )
+      }
+
+      if (phoneEl) {
+        tl.fromTo(
+          phoneEl,
+          {
+            opacity: 0,
+            x: 60,
+            rotateY: -12,
+          },
+          {
+            opacity: 1,
+            x: 0,
+            rotateY: 0,
+            duration: 0.9,
+            ease: "power3.out",
+            clearProps: "all",
+          },
+          0,
+        )
+      }
+
+      if (boxEl) {
+        tl.fromTo(
+          boxEl,
+          {
+            opacity: 0,
+            scale: 0.92,
+            filter: "blur(6px)",
+          },
+          {
+            opacity: 1,
+            scale: 1,
+            filter: "blur(0px)",
+            duration: 0.8,
+            ease: "power2.out",
+            clearProps: "all",
+          },
+          0,
+        )
+      }
+    },
+    {
+      dependencies: [length],
+      scope: containerRef,
+    },
+  )
 
   const meterFull = insertedCoins >= SPIN_COST
   const meterColor = `hsl(${(displayInserted / SPIN_COST) * 120}, 75%, 45%)`
@@ -1193,8 +1417,10 @@ const VendingMachine = () => {
   const staticRender = Math.max(totalRender - (canGrabFromBox ? 1 : 0), 0)
   const activeTilt = tiltFor(Math.max(totalRender - 1, 0))
 
-  useEffect(() => {
-    if (canGrabFromBox && coinRef.current) {
+  useGSAP(
+    () => {
+      if (!canGrabFromBox || !coinRef.current) return
+
       gsap.set(coinRef.current, {
         position: "static",
         opacity: 1,
@@ -1202,59 +1428,88 @@ const VendingMachine = () => {
         scaleX: 1,
         clearProps: "left,top,zIndex,x,y",
       })
+
       gsap.to(coinRef.current, {
         rotation: activeTilt,
         scale: 1,
         duration: 0.25,
         ease: "back.out(2)",
+        overwrite: true,
       })
-    }
-  }, [canGrabFromBox, activeTilt])
-
-  useEffect(() => {
-    if (capsuleInBucketIndex !== null && !isOpening) {
-      const capsuleEl = document.querySelector(
-        `.capsule[data-index="${capsuleInBucketIndex}"]`,
-      )
-      if (capsuleEl) {
-        if (shakeTimelineRef.current) shakeTimelineRef.current.kill()
-        shakeTimelineRef.current = gsap.timeline({
-          repeat: -1,
-          repeatDelay: 1.5,
-        })
-        shakeTimelineRef.current.to(capsuleEl, {
-          rotation: "+=6",
-          duration: 0.12,
-          ease: "power1.inOut",
-        })
-        shakeTimelineRef.current.to(capsuleEl, {
-          rotation: "-=12",
-          duration: 0.24,
-          ease: "power1.inOut",
-        })
-        shakeTimelineRef.current.to(capsuleEl, {
-          rotation: "+=6",
-          duration: 0.12,
-          ease: "power1.inOut",
-        })
-      }
-    } else if (shakeTimelineRef.current) {
-      shakeTimelineRef.current.kill()
-      shakeTimelineRef.current = null
-    }
-    return () => {
-      if (shakeTimelineRef.current) shakeTimelineRef.current.kill()
-    }
-  }, [capsuleInBucketIndex, isOpening])
+    },
+    {
+      dependencies: [canGrabFromBox, activeTilt],
+      scope: containerRef,
+    },
+  )
 
   useGSAP(
     () => {
-      const handleMove = (e: PointerEvent) => {
+      if (coinMounted || !coinRef.current) return
+
+      gsap.set(coinRef.current, {
+        clearProps:
+          "opacity,pointerEvents,transform,left,top,zIndex,position,scale,rotateY,rotation,x,y",
+      })
+    },
+    {
+      dependencies: [coinMounted],
+      scope: containerRef,
+    },
+  )
+
+  useGSAP(
+    () => {
+      if (bucketCapsuleId === null || isOpening) {
+        shakeTimelineRef.current = null
+        return
+      }
+
+      const capsuleEl = containerRef.current?.querySelector<HTMLElement>(
+        `[data-id="${bucketCapsuleId}"]`,
+      )
+      if (!capsuleEl) return
+
+      const tl = gsap.timeline({
+        repeat: -1,
+        repeatDelay: 1.5,
+      })
+
+      tl.to(capsuleEl, {
+        rotation: "+=6",
+        duration: 0.12,
+        ease: "power1.inOut",
+      })
+      tl.to(capsuleEl, {
+        rotation: "-=12",
+        duration: 0.24,
+        ease: "power1.inOut",
+      })
+      tl.to(capsuleEl, {
+        rotation: "+=6",
+        duration: 0.12,
+        ease: "power1.inOut",
+      })
+
+      shakeTimelineRef.current = tl
+    },
+    {
+      dependencies: [bucketCapsuleId, isOpening],
+      scope: containerRef,
+      revertOnUpdate: true,
+    },
+  )
+
+  useGSAP(
+    () => {
+      const handleMove = contextSafe((e: PointerEvent) => {
         if (!isDraggingRef.current || !coinRef.current) return
+
         gsap.set(coinRef.current, {
           left: e.clientX - 20,
           top: e.clientY - 20,
         })
+
         if (slotRef.current) {
           const slotRect = slotRef.current.getBoundingClientRect()
           const coinRect = coinRef.current.getBoundingClientRect()
@@ -1265,6 +1520,7 @@ const VendingMachine = () => {
             coinCenterX <= slotRect.right &&
             coinCenterY >= slotRect.top &&
             coinCenterY <= slotRect.bottom
+
           if (overSlot && !isOverSlotRef.current) {
             isOverSlotRef.current = true
             gsap.to(coinRef.current, {
@@ -1283,14 +1539,18 @@ const VendingMachine = () => {
             })
           }
         }
-      }
-      const handleUp = (e: PointerEvent) => {
+      })
+
+      const handleUp = contextSafe((e: PointerEvent) => {
         if (!isDraggingRef.current || !coinRef.current) return
+
         isDraggingRef.current = false
         setIsDragging(false)
+
         try {
-          (e.target as HTMLElement).releasePointerCapture(e.pointerId)
+          ; (e.target as HTMLElement).releasePointerCapture(e.pointerId)
         } catch { }
+
         const coinRect = coinRef.current.getBoundingClientRect()
         const coinCenterX = coinRect.left + coinRect.width / 2
         const coinCenterY = coinRect.top + coinRect.height / 2
@@ -1309,6 +1569,7 @@ const VendingMachine = () => {
           coinCenterX <= boxRect.right &&
           coinCenterY >= boxRect.top &&
           coinCenterY <= boxRect.bottom
+
         if (overSlot && !machineEmpty) {
           if (insertedCoinsRef.current >= SPIN_COST) {
             dropCoinToFloor(coinRef.current)
@@ -1317,6 +1578,7 @@ const VendingMachine = () => {
             setIsCoinSettling(true)
             setInsertedCoins((prev) => Math.min(prev + 1, SPIN_COST))
             setDisplayInserted((prev) => Math.min(prev + 1, SPIN_COST))
+
             gsap.to(coinRef.current, {
               left: slotRect!.left + slotRect!.width / 2 - 20,
               top: slotRect!.top + slotRect!.height / 2 - 20,
@@ -1330,6 +1592,7 @@ const VendingMachine = () => {
         } else if (overBox && coinAnchorRef.current) {
           setIsCoinSettling(true)
           const anchorRect = coinAnchorRef.current.getBoundingClientRect()
+
           gsap.to(coinRef.current, {
             left: anchorRect.left - 8,
             top: anchorRect.top + 8,
@@ -1342,6 +1605,7 @@ const VendingMachine = () => {
               playSound(SOUNDS.coinDrop)
               setCoins((prev) => prev + 1)
               setIsCoinSettling(false)
+
               if (coinRef.current) {
                 gsap.set(coinRef.current, {
                   position: "static",
@@ -1349,6 +1613,7 @@ const VendingMachine = () => {
                   rotateY: 0,
                   clearProps: "left,top,zIndex,x,y",
                 })
+
                 gsap.to(coinRef.current, {
                   rotation: tiltFor(
                     Math.min(coinsRef.current + 1, MAX_VISIBLE_COINS) - 1,
@@ -1363,10 +1628,13 @@ const VendingMachine = () => {
         } else {
           dropCoinToFloor(coinRef.current)
         }
+
         isOverSlotRef.current = false
-      }
+      })
+
       window.addEventListener("pointermove", handleMove)
       window.addEventListener("pointerup", handleUp)
+
       return () => {
         window.removeEventListener("pointermove", handleMove)
         window.removeEventListener("pointerup", handleUp)
@@ -1375,16 +1643,84 @@ const VendingMachine = () => {
     { scope: containerRef },
   )
 
+  useGSAP(
+    () => {
+      const cards = listRef.current
+        ? Array.from(
+          listRef.current.querySelectorAll<HTMLElement>(
+            ".mission-card:not(.exiting)",
+          ),
+        )
+        : []
+
+      if (!cards.length) return
+
+      gsap.fromTo(
+        cards,
+        { autoAlpha: 0, y: 10 },
+        {
+          autoAlpha: 1,
+          y: 0,
+          stagger: 0.09,
+          duration: 0.5,
+          ease: "power2.out",
+          overwrite: true,
+          clearProps: "opacity,visibility,transform",
+        },
+      )
+    },
+    {
+      dependencies: [activeTab, missionAnimTick],
+      scope: listRef,
+      revertOnUpdate: true,
+    },
+  )
+
+  useGSAP(
+    () => {
+      if (settleTick === 0) return
+
+      const els = containerRef.current
+        ? Array.from(
+          containerRef.current.querySelectorAll<HTMLElement>(".capsule"),
+        )
+        : []
+
+      if (!els.length) return
+
+      // y ends at 0, so nothing needs clearing. Avoids any prop-erasing on the
+      // transform that GSAP owns for every capsule.
+      gsap.fromTo(
+        els,
+        { y: -4 },
+        {
+          y: 0,
+          duration: 0.42,
+          ease: "bounce.out",
+          stagger: { each: 0.012, from: "random" },
+        },
+      )
+    },
+    {
+      dependencies: [settleTick],
+      scope: containerRef,
+      revertOnUpdate: true,
+    },
+  )
+
   // --- Event Handlers ---
 
-  const handleCoinPointerDown = (e: React.PointerEvent) => {
+  const handleCoinPointerDown = contextSafe((e: React.PointerEvent) => {
     if (!canGrabFromBox) return
+
     isDraggingRef.current = true
     setIsDragging(true)
     setCoins((prev) => prev - 1)
+
     const target = e.currentTarget as HTMLElement
     target.setPointerCapture(e.pointerId)
     e.preventDefault()
+
     const rect = target.getBoundingClientRect()
     gsap.set(coinRef.current, {
       position: "fixed",
@@ -1392,6 +1728,7 @@ const VendingMachine = () => {
       left: rect.left,
       top: rect.top,
     })
+
     gsap.to(coinRef.current, {
       rotation: 0,
       rotateY: 0,
@@ -1400,41 +1737,47 @@ const VendingMachine = () => {
       duration: 0.18,
       ease: "power2.out",
     })
-  }
+  })
 
-  const handleFloorCoinPointerDown = (
-    e: React.PointerEvent,
-    floorId: number,
-  ) => {
-    if (isDragging || isCoinSettling || isSpinning) return
-    isDraggingRef.current = true
-    setIsDragging(true)
-    setFloorCoins((prev) => prev.filter((c) => c.id !== floorId))
-    const target = e.currentTarget as HTMLElement
-    target.setPointerCapture(e.pointerId)
-    e.preventDefault()
-    const rect = target.getBoundingClientRect()
-    gsap.set(coinRef.current, {
-      position: "fixed",
-      zIndex: 9999,
-      left: rect.left,
-      top: rect.top,
-      rotateY: 0,
-      scaleX: 1,
-      scale: 1,
-      rotation: 0,
-    })
-  }
+  const handleFloorCoinPointerDown = contextSafe(
+    (e: React.PointerEvent, floorId: number) => {
+      if (isDragging || isCoinSettling || isSpinning) return
+
+      isDraggingRef.current = true
+      setIsDragging(true)
+      setFloorCoins((prev) => prev.filter((c) => c.id !== floorId))
+
+      const target = e.currentTarget as HTMLElement
+      target.setPointerCapture(e.pointerId)
+      e.preventDefault()
+
+      const rect = target.getBoundingClientRect()
+      gsap.set(coinRef.current, {
+        position: "fixed",
+        zIndex: 9999,
+        left: rect.left,
+        top: rect.top,
+        opacity: 1,
+        pointerEvents: "auto",
+        rotateY: 0,
+        scaleX: 1,
+        scale: 1,
+        rotation: 0,
+      })
+    },
+  )
 
   const handleScreenPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     playSound(SOUNDS.uiTap, 0.3)
     const rect = e.currentTarget.getBoundingClientRect()
     const id = rippleIdRef.current++
+
     setRipples((prev) => [
       ...prev,
       { id, x: e.clientX - rect.left, y: e.clientY - rect.top },
     ])
-    window.setTimeout(
+
+    scheduleTimeout(
       () => setRipples((prev) => prev.filter((r) => r.id !== id)),
       700,
     )
@@ -1453,33 +1796,60 @@ const VendingMachine = () => {
     setCursorPos((prev) => ({ ...prev, active: false }))
 
   const claimById = async (m: Mission) => {
+    if (claimingIds.has(m.id) || exitingIds.has(m.id)) return
+
+    setClaimingIds((prev) => new Set(prev).add(m.id))
+
     try {
       const res = await claimMission(m.id)
       playSound(SOUNDS.missionClaim)
       reconcileCoins(res.totalCoins)
+
       const state = await fetchMachineState()
-      setMissions(state.missions || [])
-    } catch (e: any) {
-      alert(e.message || "Failed to claim!")
+
+      setExitingIds((prev) => new Set(prev).add(m.id))
+      setCompletedPulse(true)
+
+      scheduleTimeout(() => {
+        setMissions(state.missions || [])
+        setExitingIds((prev) => {
+          const next = new Set(prev)
+          next.delete(m.id)
+          return next
+        })
+      }, 340)
+
+      scheduleTimeout(() => setCompletedPulse(false), 560)
+    } catch (error) {
+      alert(getErrorMessage(error) || "Failed to claim!")
+    } finally {
+      setClaimingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(m.id)
+        return next
+      })
     }
   }
 
   const startHold = (e: React.PointerEvent, id: number) => {
-    e.preventDefault();
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-    playSound(SOUNDS.uiTap, 0.25)
+    e.preventDefault()
+      ; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+
     const start = performance.now()
-    const loop = (now: number) => {
-      const p = Math.min((now - start) / HOLD_MS, 1)
+    const loop = (timestamp: number) => {
+      const p = Math.min((timestamp - start) / HOLD_MS, 1)
       setHold({ id, p })
+
       if (p >= 1) {
         holdRef.current = null
         setHold(null)
         setHoldCompletedIds((prev) => new Set([...prev, id]))
         return
       }
+
       holdRef.current = { id, raf: requestAnimationFrame(loop) }
     }
+
     holdRef.current = { id, raf: requestAnimationFrame(loop) }
   }
 
@@ -1497,6 +1867,7 @@ const VendingMachine = () => {
   const handleListPointerDown = (e: React.PointerEvent) => {
     const el = listRef.current
     if (!el) return
+
     listDragRef.current = {
       active: true,
       startY: e.clientY,
@@ -1510,9 +1881,11 @@ const VendingMachine = () => {
     const st = listDragRef.current
     const el = listRef.current
     if (!st.active || !el) return
+
     const dy = e.clientY - st.startY
     if (!st.moved && Math.abs(dy) > 6) st.moved = true
     if (!st.moved) return
+
     if (st.startScroll <= 0 && dy > 0 && !isRefreshing) {
       st.pulling = true
       setPull(Math.min(dy * 0.45, 72))
@@ -1526,10 +1899,13 @@ const VendingMachine = () => {
   const handleListPointerEnd = () => {
     const st = listDragRef.current
     if (!st.active) return
+
     st.active = false
+
     if (st.pulling && pullRef.current > 48 && !isRefreshing) {
       setPull(0)
       setIsRefreshing(true)
+
       void fetchMachineState()
         .then((state) => {
           setMissions(state.missions || [])
@@ -1540,8 +1916,9 @@ const VendingMachine = () => {
     } else {
       setPull(0)
     }
+
     st.pulling = false
-    window.setTimeout(() => {
+    scheduleTimeout(() => {
       listDragRef.current.moved = false
     }, 0)
   }
@@ -1559,12 +1936,14 @@ const VendingMachine = () => {
       length === 0 ||
       length === null ||
       isSpinning ||
-      capsuleInBucketIndex !== null
+      bucketCapsuleId !== null
     )
       return
+
     playSound(SOUNDS.spinStart)
     setIsSpinning(true)
     setInsertedCoins(0)
+
     drainProxyRef.current.v = displayInserted
     gsap.to(drainProxyRef.current, {
       v: 0,
@@ -1572,19 +1951,45 @@ const VendingMachine = () => {
       ease: "power1.in",
       onUpdate: () => setDisplayInserted(Math.ceil(drainProxyRef.current.v)),
     })
-    const dropIndex = (length ?? 1) - 1
-    const capsules = gsap.utils.toArray<HTMLElement>(".capsule")
-    const capsule = document.querySelector<HTMLElement>(
-      `.capsule[data-index="${dropIndex}"]`,
-    )
+
+    if (!capsules.length) {
+      setIsSpinning(false)
+      return
+    }
+
+    // Pick the topmost visible capsule, not simply the last array item.
+    let dropIndex = 0
+    for (let i = 1; i < capsules.length; i++) {
+      if (capsules[i].bottom > capsules[dropIndex].bottom) {
+        dropIndex = i
+      }
+    }
+
+    const dropped = capsules[dropIndex]
+    const pileCapsuleEls = containerRef.current
+      ? Array.from(
+        containerRef.current.querySelectorAll<HTMLElement>(".capsule"),
+      )
+      : []
+
+    const capsule =
+      pileCapsuleEls.find((el) => el.dataset.id === dropped.id) ?? null
+
     if (!capsule) {
       setIsSpinning(false)
       return
     }
+
     const chute = document.getElementById("prize-chute")
-    if (!chute) return
-    capsule.style.rotate = "0deg"
-    capsule.style.scale = "1"
+    if (!chute) {
+      setIsSpinning(false)
+      return
+    }
+
+    // Straighten the dropped capsule through GSAP so its internal transform
+    // cache stays in sync. Never touch style.rotate / style.scale by hand.
+    gsap.set(capsule, { rotation: 0, scale: 1, x: 0, y: 0 })
+
     const capsuleRect = capsule.getBoundingClientRect()
     const chuteRect = chute.getBoundingClientRect()
     const visualHeight = CAPSULE_SIZE * BUCKET_SCALE
@@ -1594,10 +1999,12 @@ const VendingMachine = () => {
       chuteRect.width / 2 -
       (capsuleRect.left + capsuleRect.width / 2)
     const destY = chuteRect.top + 10 - visualTopOffset - capsuleRect.top
+
     const tl = gsap.timeline({
       onComplete: async () => {
         playSound(SOUNDS.capsuleDrop)
-        setCapsuleInBucketIndex(dropIndex)
+        setBucketCapsuleId(dropped.id)
+
         try {
           const result = await submitSpinToBackend()
           pendingLengthRef.current = result.remaining
@@ -1607,25 +2014,35 @@ const VendingMachine = () => {
             code: result.code || undefined,
             validUntil: result.expiresAt || undefined,
           })
-        } catch (e: any) {
-          console.error("Spin error:", e)
-          if (e.message === "out_of_capsules") setLength(0)
-          else if (e.message === "not_enough_coins")
+        } catch (error) {
+          const message = getErrorMessage(error)
+          console.error("Spin error:", error)
+
+          if (message === "out_of_capsules") {
+            pendingLengthRef.current = 0
+          } else if (message === "not_enough_coins") {
+            pendingLengthRef.current = lengthRef.current
             void fetchMachineState().then((state) =>
               reconcileCoins(state.coins),
             )
+          } else {
+            pendingLengthRef.current = lengthRef.current
+          }
         }
+
         setIsSpinning(false)
       },
     })
+
     tl.to("#spin-btn", { rotation: 180, duration: 0.3, yoyo: true, repeat: 1 })
-    const pileCapsules = capsules.filter((el) => el !== capsule)
+
+    const pileCapsules = pileCapsuleEls.filter((el) => el !== capsule)
+
     tl.to(
       pileCapsules,
       {
         x: () => gsap.utils.random(-25, 25),
         y: () => gsap.utils.random(-20, 10),
-        rotation: () => gsap.utils.random(-25, 25),
         duration: 0.08,
         ease: "power3.out",
         stagger: { each: 0.015, from: "random" },
@@ -1635,24 +2052,26 @@ const VendingMachine = () => {
     tl.to(pileCapsules, {
       x: () => gsap.utils.random(-18, 18),
       y: () => gsap.utils.random(-12, 6),
-      rotation: () => gsap.utils.random(-18, 18),
       duration: 0.1,
       ease: "power2.inOut",
     })
     tl.to(pileCapsules, {
       x: () => gsap.utils.random(-10, 10),
       y: () => gsap.utils.random(-6, 3),
-      rotation: () => gsap.utils.random(-10, 10),
       duration: 0.12,
       ease: "power1.inOut",
     })
+    // No clearProps here, on purpose. Clearing "transform" wiped each capsule's
+    // rotation and scale (GSAP keeps them inside the transform it owns), which
+    // is what snapped the pile into a straight "grid" after every spin.
+    // Ending at x/y 0 leaves transform = rotate(r) scale(s): the resting pose.
     tl.to(pileCapsules, {
       x: 0,
       y: 0,
-      rotation: 0,
       duration: 0.3,
       ease: "elastic.out(1, 0.4)",
     })
+
     tl.to(
       capsule,
       {
@@ -1667,18 +2086,23 @@ const VendingMachine = () => {
     )
   })
 
-  const handleOpenCapsule = (e: React.MouseEvent, index: number) => {
-    if (isOpening || capsuleInBucketIndex !== index) return
+  const handleOpenCapsule = contextSafe((e: React.MouseEvent, id: string) => {
+    if (isOpening || isSpinning || bucketCapsuleId !== id) return
+
     playSound(SOUNDS.capsuleOpen)
+
     if (shakeTimelineRef.current) {
       shakeTimelineRef.current.kill()
       shakeTimelineRef.current = null
     }
+
     setIsOpening(true)
     setIsPresenting(true)
+
     const original = e.currentTarget as HTMLElement
     const rect = original.getBoundingClientRect()
     const clone = original.cloneNode(true) as HTMLElement
+
     clone.style.position = "fixed"
     clone.style.left = `${rect.left}px`
     clone.style.top = `${rect.top}px`
@@ -1693,41 +2117,57 @@ const VendingMachine = () => {
     clone.style.scale = ""
     clone.style.pointerEvents = "none"
     clone.classList.remove("shadow-md")
+
     clone
       .querySelectorAll<HTMLElement>(".capsule-top, .capsule-bottom")
       .forEach((el) => el.classList.remove("shadow-md"))
+
     document.body.appendChild(clone)
     presentationCloneRef.current = clone
+
     gsap.set(original, { opacity: 0, pointerEvents: "none" })
-    if (overlayRef.current)
+
+    if (overlayRef.current) {
       gsap.fromTo(
         overlayRef.current,
         { opacity: 0 },
         { opacity: 1, duration: 0.45 },
       )
+    }
+
     const centerX = window.innerWidth / 2
     const centerY = window.innerHeight / 2
+
     const tl = gsap.timeline({
       onComplete: () => {
-        if (currentDropResult)
+        if (currentDropResult) {
           setPrizeData({
             prize: currentDropResult.prize,
             code: currentDropResult.code,
             validUntil: currentDropResult.validUntil,
           })
+        }
+
         clone.remove()
         presentationCloneRef.current = null
-        setCapsuleInBucketIndex(null)
+
+        // Remove only this capsule. The rest of the pile keeps its positions.
+        setCapsules((prev) => prev.filter((c) => c.id !== id))
+        setBucketCapsuleId(null)
         setCurrentDropResult(null)
         setIsOpening(false)
         setIsPresenting(false)
+        setSettleTick((t) => t + 1)
+
         if (pendingLengthRef.current !== null) {
           setLength(pendingLengthRef.current)
           pendingLengthRef.current = null
         }
       },
     })
+
     presentationTlRef.current = tl
+
     tl.to(clone, {
       left: centerX - rect.width / 2,
       top: centerY - rect.height / 2,
@@ -1736,39 +2176,41 @@ const VendingMachine = () => {
       duration: 0.9,
       ease: "power2.inOut",
     })
+
     const wobble = gsap.timeline({ repeat: 1 })
     wobble
       .to(clone, { rotation: "+=6", duration: 0.12, ease: "power1.inOut" })
       .to(clone, { rotation: "-=12", duration: 0.24, ease: "power1.inOut" })
       .to(clone, { rotation: "+=6", duration: 0.12, ease: "power1.inOut" })
+
     tl.add(wobble)
+
     tl.to(
-      clone.querySelector(".capsule-top"),
+      clone.querySelector<HTMLElement>(".capsule-top")!,
       { y: -70, opacity: 0, duration: 0.6, ease: "power2.out" },
       "+=0.15",
     )
     tl.to(
-      clone.querySelector(".capsule-bottom"),
+      clone.querySelector<HTMLElement>(".capsule-bottom")!,
       { y: 70, opacity: 0, duration: 0.6, ease: "power2.out" },
       "<",
     )
-  }
+  })
 
-  const capsuleColorMap = useMemo(() => {
-    const colors = []
-    for (let i = 0; i < 50; i++)
-      colors.push(
-        CAPSULE_COLORS[
-        Math.floor(seededRandom(i * 137) * CAPSULE_COLORS.length)
-        ],
-      )
-    return colors
-  }, [])
+  const availableMissions = useMemo(
+    () => missions.filter((m) => !m.completed),
+    [missions],
+  )
+  const completedMissions = useMemo(
+    () => missions.filter((m) => m.completed),
+    [missions],
+  )
+  const activeMissions =
+    activeTab === "available" ? availableMissions : completedMissions
 
-  const pileLayout = useMemo(() => buildPileLayout(length ?? 0), [length])
   if (length === null) return null
 
-  const machineEmpty = length === 0 && capsuleInBucketIndex === null
+  const machineEmpty = length === 0 && bucketCapsuleId === null
   const clockLabel = now
     .toLocaleTimeString("en-US", {
       hour: "numeric",
@@ -1791,18 +2233,24 @@ const VendingMachine = () => {
         @keyframes mascot-blink { 0%, 90%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.12); } }
         @keyframes vm-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
         @keyframes vm-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+        @keyframes mascot-sway { 0%, 100% { transform: rotate(-4deg) translateY(0); } 50% { transform: rotate(4deg) translateY(-3px); } }
+        @keyframes mascot-look { 0%, 40%, 100% { transform: translateX(0); } 20% { transform: translateX(-2px); } 60% { transform: translateX(2px); } }
+        @keyframes tab-pop { 0% { transform: scale(1); } 40% { transform: scale(1.14); } 100% { transform: scale(1); } }
       `}</style>
 
       {/* MAIN MACHINE */}
       <div className="machine-container min-w-2xs w-[calc(100vw-3rem)] xs:w-md min-h-96 h-130 bg-linear-to-br from-slate-200 via-slate-300 to-slate-400 rounded-md shadow-lg p-4 mx-auto relative mt-26">
         <div className="w-full h-72 bg-white/50 border-2 border-gray-300 rounded-t-lg relative">
           <div className="absolute inset-x-3 bottom-3 top-8 z-40">
-            {pileLayout.map((spot, i) => {
-              const isInBucket = capsuleInBucketIndex === i
+            {capsules.map((spot) => {
+              const isInBucket = bucketCapsuleId === spot.id
+              const capsuleColor =
+                CAPSULE_COLORS[spot.colorIndex % CAPSULE_COLORS.length]
+
               return (
                 <div
                   key={spot.id}
-                  data-index={i}
+                  data-id={spot.id}
                   className={cn(
                     "capsule absolute w-20 h-20 rounded-full transition-[opacity,filter] duration-300 opacity-100",
                     isInBucket &&
@@ -1812,18 +2260,21 @@ const VendingMachine = () => {
                     left: spot.left,
                     bottom: spot.bottom,
                     zIndex: spot.z,
-                    scale: isInBucket ? undefined : spot.scale,
-                    rotate: isInBucket ? undefined : `${spot.rotate}deg`,
+                    // GSAP is the only owner of capsule transforms from here on.
+                    // We seed it with this spot's rotation/scale so GSAP's first
+                    // parse sees them. The string is stable per capsule id, so
+                    // React never rewrites it and never fights GSAP's updates.
+                    transform: `rotate(${spot.rotate}deg) scale(${spot.scale})`,
                     filter: isInBucket
                       ? undefined
                       : `blur(${spot.blur.toFixed(2)}px) brightness(${spot.bright.toFixed(2)})`,
                   }}
-                  onDoubleClick={(e) => handleOpenCapsule(e, i)}
+                  onDoubleClick={(e) => handleOpenCapsule(e, spot.id)}
                 >
                   <div
                     className={cn(
                       "capsule-top absolute top-0 w-full h-1/2 rounded-t-full shadow-md overflow-hidden bg-linear-to-br",
-                      capsuleColorMap[i],
+                      capsuleColor,
                     )}
                   >
                     <div className="absolute bg-white/70 rounded-full blur-sm size-4 left-4 top-2"></div>
@@ -1831,13 +2282,19 @@ const VendingMachine = () => {
                   <div
                     className={cn(
                       "capsule-bottom absolute bottom-0 w-full h-1/2 rounded-b-full shadow-md bg-linear-to-br",
-                      capsuleColorMap[i],
+                      capsuleColor,
                     )}
                   ></div>
                 </div>
               )
             })}
           </div>
+
+          {length !== null && length > MAX_VISIBLE_CAPSULES && (
+            <div className="absolute right-3 top-2 z-50 rounded-full border border-pink-200 bg-white/85 px-2 py-0.5 text-[10px] font-bold text-pink-600 shadow-sm pointer-events-none select-none">
+              × {length}
+            </div>
+          )}
 
           {machineEmpty && (
             <div className="absolute inset-0 z-45 bg-gray-950 rounded-t-lg overflow-hidden flex flex-col items-center justify-center gap-3">
@@ -1871,6 +2328,7 @@ const VendingMachine = () => {
                   </span>
                 </div>
               </div>
+
               <div className="w-full overflow-hidden">
                 <div
                   className="inline-flex whitespace-nowrap"
@@ -1935,7 +2393,7 @@ const VendingMachine = () => {
               !meterFull ||
               isSpinning ||
               length === 0 ||
-              capsuleInBucketIndex !== null
+              bucketCapsuleId !== null
             }
             className="relative translate-x-1/6 sm:translate-x-0 size-26 bg-gray-100 shadow rounded-full after:content-[''] after:absolute after:h-16 after:w-4 after:bg-white after:shadow after:left-1/2 after:top-1/2 after:-translate-1/2 after:border-r-2 after:border-r-gray-300 before:content-[''] before:absolute before:size-17 before:rounded-full before:border-2 before:border-gray-200 before:left-1/2 before:top-1/2 before:-translate-1/2"
           >
@@ -2018,10 +2476,14 @@ const VendingMachine = () => {
 
       {/* PHONE & COIN BOX */}
       <div className="flex flex-col-reverse md:flex-col items-center gap-8 w-72">
-        <div className="phone-container w-full h-137.5 bg-stone-900 rounded-[40px] p-2 shadow-2xl border-4 border-stone-800 relative flex flex-col select-none">
+        <div
+          className="phone-container w-full h-137.5 bg-stone-900 rounded-[40px] p-2 shadow-2xl border-4 border-stone-800 relative flex flex-col select-none"
+          onContextMenu={(e) => e.preventDefault()}
+        >
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-6 bg-stone-900 rounded-b-2xl z-20 flex items-center justify-center">
             <div className="w-12 h-1.5 bg-stone-700 rounded-full"></div>
           </div>
+
           <div
             className="phone-screen bg-stone-50 rounded-4xl flex-1 flex flex-col overflow-hidden relative cursor-none"
             onPointerDown={handleScreenPointerDown}
@@ -2060,14 +2522,21 @@ const VendingMachine = () => {
                 </svg>
               </div>
             </div>
+
             <div className="h-12 bg-white flex items-center px-4 shadow-sm border-b border-stone-200 z-10">
               <span className="text-stone-800 text-base font-bold leading-tight">
                 Daily Missions
               </span>
             </div>
+
             <div
               ref={listRef}
-              className="flex-1 overflow-y-auto touch-none p-3 space-y-3 bg-stone-100"
+              className={cn(
+                "flex-1 overflow-y-auto touch-none p-3 space-y-3 bg-stone-100",
+                isTabFading
+                  ? "opacity-0 transition-opacity duration-150 ease-out"
+                  : "opacity-100",
+              )}
               onPointerDown={handleListPointerDown}
               onPointerMove={handleListPointerMove}
               onPointerUp={handleListPointerEnd}
@@ -2111,103 +2580,167 @@ const VendingMachine = () => {
                 )}
               </div>
 
-              {missions.length === 0 && (
-                <div className="flex flex-col items-center justify-center h-full text-stone-400 gap-3 pb-8">
-                  <MascotCapsule />
-                  <div className="text-center">
-                    <p className="text-sm font-semibold text-stone-500">
-                      All caught up!
-                    </p>
-                    <p className="text-[11px] text-stone-400 mt-1">
-                      Come back tomorrow for more.
-                    </p>
-                  </div>
+              {activeMissions.length === 0 && (
+                <div
+                  key={`empty-${activeTab}`}
+                  className="flex flex-col items-center justify-center h-full text-stone-400 gap-3 pb-8"
+                >
+                  {activeTab === "available" ? (
+                    <>
+                      <MascotCapsule />
+                      <div className="text-center">
+                        <p className="text-sm font-semibold text-stone-500">
+                          All caught up!
+                        </p>
+                        <p className="text-[11px] text-stone-400 mt-1">
+                          Come back tomorrow for more.
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <MascotCapsule mood="curious" />
+                      <div className="text-center">
+                        <p className="text-sm font-semibold text-stone-500">
+                          No completed missions yet
+                        </p>
+                        <p className="text-[11px] text-stone-400 mt-1">
+                          Finish one and it will show up here.
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
-              {missions.map((m) => {
-                const visited = visitedIds[m.id] === jstDateStr()
-                const holding = hold?.id === m.id
-                return (
-                  <div
-                    key={m.id}
-                    className="bg-white p-4 rounded-2xl shadow-sm border border-stone-200/50 transition-all active:scale-[0.98]"
-                  >
-                    <div className="flex justify-between items-start mb-1.5">
-                      <span className="text-sm font-bold text-stone-800 leading-tight">
-                        {m.title}
-                      </span>
-                      <span className="text-[10px] font-bold text-amber-600 flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                        <CatPawIcon className="w-3 h-3" /> +{m.coins}
-                      </span>
-                    </div>
-                    {m.description && (
-                      <p className="text-[11px] text-stone-500 leading-snug mb-3">
-                        {m.description}
-                      </p>
-                    )}
-                    <div className="flex gap-2">
-                      {m.completed ? (
-                        <span className="flex-[1.5] text-center text-xs py-2 rounded-lg font-bold bg-green-50 text-green-500 border border-green-100">
-                          Claimed
+              <div key={`list-${activeTab}`} className="flex flex-col empty:hidden">
+                {activeMissions.map((m) => {
+                  const visited = visitedIds[m.id] === jstDateStr()
+                  const holding = hold?.id === m.id
+                  const claiming = claimingIds.has(m.id)
+                  const exiting = exitingIds.has(m.id)
+                  const busy = claiming || exiting
+
+                  return (
+                    <div
+                      key={m.id}
+                      className={cn(
+                        "mission-card rounded-2xl border shadow-sm",
+                        exiting
+                          ? "exiting pointer-events-none opacity-0 scale-95 transition-[opacity,transform] duration-300 ease-out"
+                          : "bg-white p-4 border-stone-200/50 mb-3 last:mb-0 active:scale-[0.98]",
+                      )}
+                    >
+                      <div className="flex justify-between items-start mb-1.5">
+                        <span className="text-sm font-bold text-stone-800 leading-tight">
+                          {m.title}
                         </span>
-                      ) : m.url ? (
-                        visited ? (
+                        <span className="text-[10px] font-bold text-amber-600 flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                          <CatPawIcon className="w-3 h-3" /> +{m.coins}
+                        </span>
+                      </div>
+
+                      {m.description && (
+                        <p className="text-[11px] text-stone-500 leading-snug mb-3">
+                          {m.description}
+                        </p>
+                      )}
+
+                      <div
+                        className={cn(
+                          "flex gap-2",
+                          m.url && m.completed && "flex-col",
+                        )}
+                      >
+                        {m.url && m.completed ? (
+                          <>
+                            <a
+                              href={m.url}
+                              target="_blank"
+                              rel="noopener"
+                              onClick={() => markVisited(m.id)}
+                              className="w-full text-center text-xs bg-stone-100 hover:bg-stone-200 text-stone-600 py-2 rounded-lg font-medium transition-colors"
+                            >
+                              {m.cta_text || "Visit"}
+                            </a>
+
+                            <span className="w-full text-center text-xs py-2 rounded-lg font-bold bg-green-50 text-green-500 border border-green-100">
+                              Claimed
+                            </span>
+                          </>
+                        ) : m.completed ? (
+                          <span className="flex-[1.5] text-center text-xs py-2 rounded-lg font-bold bg-green-50 text-green-500 border border-green-100">
+                            Claimed
+                          </span>
+                        ) : m.url ? (
+                          visited ? (
+                            <button
+                              onClick={() => claimById(m)}
+                              disabled={busy}
+                              className="flex-[1.5] text-xs py-2 rounded-lg font-bold transition-all shadow-sm bg-sky-500 text-white hover:bg-sky-600 active:scale-95 disabled:opacity-70"
+                            >
+                              {busy ? (
+                                <ClaimSpinner label="Claiming…" />
+                              ) : (
+                                "Claim"
+                              )}
+                            </button>
+                          ) : (
+                            <a
+                              href={m.url}
+                              target="_blank"
+                              rel="noopener"
+                              onClick={() => markVisited(m.id)}
+                              className="flex-1 text-center text-xs bg-stone-100 hover:bg-stone-200 text-stone-600 py-2 rounded-lg font-medium transition-colors"
+                            >
+                              {m.cta_text || "Visit"}
+                            </a>
+                          )
+                        ) : !holdCompletedIds.has(m.id) && !visited ? (
                           <button
-                            onClick={() => claimById(m)}
-                            className="flex-[1.5] text-xs py-2 rounded-lg font-bold transition-all shadow-sm bg-sky-500 text-white hover:bg-sky-600 active:scale-95"
+                            onPointerDown={(e) => startHold(e, m.id)}
+                            onPointerUp={cancelHold}
+                            onPointerLeave={cancelHold}
+                            onPointerCancel={cancelHold}
+                            className="relative overflow-hidden flex-[1.5] text-xs py-2 rounded-lg font-bold transition-all shadow-sm bg-sky-500 text-white hover:bg-sky-600 active:scale-95"
                           >
-                            Claim
+                            {holding && (
+                              <span
+                                className="absolute inset-y-0 left-0 bg-white/30"
+                                style={{ width: `${(hold?.p ?? 0) * 100}%` }}
+                              />
+                            )}
+                            <span className="relative">
+                              {holding ? "Charging…" : "Hold to confirm"}
+                            </span>
+                          </button>
+                        ) : holdCompletedIds.has(m.id) && !visited ? (
+                          <button
+                            onClick={() => markVisited(m.id)}
+                            className="flex-[1.5] text-xs py-2 rounded-lg font-bold transition-all shadow-sm bg-pink-500 text-white hover:bg-pink-600 active:scale-95"
+                          >
+                            {m.cta_text || "Claim reward"}
                           </button>
                         ) : (
-                          <a
-                            href={m.url}
-                            target="_blank"
-                            rel="noopener"
-                            onClick={() => markVisited(m.id)}
-                            className="flex-1 text-center text-xs bg-stone-100 hover:bg-stone-200 text-stone-600 py-2 rounded-lg font-medium transition-colors"
+                          <button
+                            onClick={() => claimById(m)}
+                            disabled={busy}
+                            className="flex-[1.5] text-xs py-2 rounded-lg font-bold transition-all shadow-sm bg-sky-500 text-white hover:bg-sky-600 active:scale-95 disabled:opacity-70"
                           >
-                            {m.cta_text || "Visit"}
-                          </a>
-                        )
-                      ) : !holdCompletedIds.has(m.id) && !visited ? (
-                        <button
-                          onPointerDown={(e) => startHold(e, m.id)}
-                          onPointerUp={cancelHold}
-                          onPointerLeave={cancelHold}
-                          onPointerCancel={cancelHold}
-                          className="relative overflow-hidden flex-[1.5] text-xs py-2 rounded-lg font-bold transition-all shadow-sm bg-sky-500 text-white hover:bg-sky-600 active:scale-95"
-                        >
-                          {holding && (
-                            <span
-                              className="absolute inset-y-0 left-0 bg-white/30"
-                              style={{ width: `${(hold?.p ?? 0) * 100}%` }}
-                            />
-                          )}
-                          <span className="relative">
-                            {holding ? "Charging…" : "Hold to confirm"}
-                          </span>
-                        </button>
-                      ) : holdCompletedIds.has(m.id) && !visited ? (
-                        <button
-                          onClick={() => markVisited(m.id)}
-                          className="flex-[1.5] text-xs py-2 rounded-lg font-bold transition-all shadow-sm bg-pink-500 text-white hover:bg-pink-600 active:scale-95"
-                        >
-                          {m.cta_text || "Claim reward"}
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => claimById(m)}
-                          className="flex-[1.5] text-xs py-2 rounded-lg font-bold transition-all shadow-sm bg-sky-500 text-white hover:bg-sky-600 active:scale-95"
-                        >
-                          Claim
-                        </button>
-                      )}
+                            {busy ? (
+                              <ClaimSpinner label="Claiming…" />
+                            ) : (
+                              "Claim"
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
+
             {ripples.map((r) => (
               <span
                 key={r.id}
@@ -2215,12 +2748,83 @@ const VendingMachine = () => {
                 style={{ left: r.x, top: r.y }}
               />
             ))}
+
             {cursorPos.active && (
               <div
                 className="absolute w-4 h-4 bg-white/80 border border-black/10 rounded-full pointer-events-none z-50 -translate-x-1/2 -translate-y-1/2 shadow-sm"
                 style={{ left: cursorPos.x, top: cursorPos.y }}
               />
             )}
+
+            <div
+              role="tablist"
+              className="relative flex bg-white border-t border-stone-200 shadow-[0_-1px_2px_rgba(0,0,0,0.04)] z-10"
+            >
+              {(["available", "completed"] as const).map((tab) => {
+                const label = tab === "available" ? "Available" : "Completed"
+                const count =
+                  tab === "available"
+                    ? availableMissions.length
+                    : completedMissions.length
+                const isActive = activeTab === tab
+
+                return (
+                  <button
+                    key={tab}
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => {
+                      if (tab === activeTab || isTabFading) return
+
+                      cancelHold()
+                      setIsTabFading(true)
+
+                      if (tabTimeoutRef.current) {
+                        window.clearTimeout(tabTimeoutRef.current)
+                      }
+
+                      tabTimeoutRef.current = window.setTimeout(() => {
+                        setActiveTab(tab)
+                        if (listRef.current) listRef.current.scrollTop = 0
+                        setIsTabFading(false)
+                        setMissionAnimTick((t) => t + 1)
+                      }, 160)
+                    }}
+                    style={
+                      tab === "completed" && completedPulse
+                        ? { animation: "tab-pop 0.5s ease-out" }
+                        : undefined
+                    }
+                    className={cn(
+                      "flex-1 py-2 text-xs font-bold transition-all active:translate-y-px active:bg-stone-50",
+                      isActive
+                        ? "text-pink-600"
+                        : "text-stone-400 hover:text-stone-600",
+                      tab === "completed" && completedPulse && "text-pink-600",
+                    )}
+                  >
+                    {label}
+                    <span
+                      className={cn(
+                        "ml-1 tabular-nums",
+                        isActive ? "text-pink-400" : "text-stone-300",
+                      )}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                )
+              })}
+
+              <span
+                className="absolute top-0 h-0.5 bg-pink-500 transition-all duration-300 ease-out"
+                style={{
+                  width: "50%",
+                  left: activeTab === "available" ? "0%" : "50%",
+                }}
+              />
+            </div>
+
             <div className="h-10 bg-white border-t border-stone-200 flex items-center justify-center gap-16">
               <svg
                 width="14"
@@ -2270,6 +2874,7 @@ const VendingMachine = () => {
           <div className="text-[10px] font-bold tracking-widest text-pink-600">
             COIN BOX
           </div>
+
           <div className="relative flex h-16 w-full items-end justify-center px-1">
             {Array.from({ length: staticRender }, (_, i) => ({
               id: `box-coin-${i}`,
@@ -2287,26 +2892,34 @@ const VendingMachine = () => {
                 </div>
               </div>
             ))}
+
             <div
               ref={coinAnchorRef}
               className="flex h-12 w-6 items-end justify-center"
             >
-              {coinMounted && (
-                <div
-                  ref={coinRef}
-                  onPointerDown={handleCoinPointerDown}
-                  className="h-10 w-10 shrink-0 rounded-full bg-linear-to-br from-yellow-300 via-yellow-400 to-yellow-500 border-2 border-yellow-600 shadow-lg flex items-center justify-center cursor-grab active:cursor-grabbing select-none touch-none pointer-events-auto"
-                >
-                  <CatPawIcon className="w-6 h-6 text-yellow-700" />
-                </div>
-              )}
+              <div
+                ref={coinRef}
+                onPointerDown={
+                  canGrabFromBox ? handleCoinPointerDown : undefined
+                }
+                className={cn(
+                  "h-10 w-10 shrink-0 rounded-full bg-linear-to-br from-yellow-300 via-yellow-400 to-yellow-500 border-2 border-yellow-600 shadow-lg flex items-center justify-center select-none touch-none",
+                  coinMounted
+                    ? "cursor-grab active:cursor-grabbing pointer-events-auto"
+                    : "pointer-events-none opacity-0",
+                )}
+              >
+                <CatPawIcon className="w-6 h-6 text-yellow-700" />
+              </div>
             </div>
+
             {coins === 0 && (
               <div className="absolute inset-0 flex items-center justify-center text-pink-400/60 text-sm">
                 Empty
               </div>
             )}
           </div>
+
           <div className="flex items-center gap-1 rounded-md bg-white/70 px-3 py-0.5 text-xs font-bold text-pink-600 shadow-inner">
             <CatPawIcon className="w-3.5 h-3.5 text-yellow-600" />
             <span>× {coins}</span>
@@ -2336,6 +2949,7 @@ const VendingMachine = () => {
           className="fixed inset-0 z-170 bg-black/25 backdrop-blur-md pointer-events-none"
         />
       )}
+
       {prizeData && (
         <PrizeModal data={prizeData} onClose={() => setPrizeData(null)} />
       )}
