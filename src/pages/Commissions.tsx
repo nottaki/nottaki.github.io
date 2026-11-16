@@ -79,7 +79,7 @@ const FAQ = [
     {
         id: 'faq-2',
         q: 'What happens if I win the Commission Ticket?',
-        a: 'Your project is on me — valid for one week. Download the ticket, then send me the ticket image or just the code along with a short description of your project via email, X (Twitter) DM, or Discord DM. One ticket = one project.',
+        a: 'Your project is on me — valid for one week. Download the ticket, then send me the ticket image or just the code along with a short description of your project via contact page, email, X (Twitter) DM, or Discord DM. One ticket = one project.',
     },
     {
         id: 'faq-3',
